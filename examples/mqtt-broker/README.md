@@ -1,12 +1,6 @@
-# SurgeMQ Standalone Server
+# MQTT-Broker
 
-Standalone SurgeMQ server, creates listeners for plaintext MQTT, Websocket and Secure Websocket. Without any options, surgemq listens on port 1883 for plaintext MQTT.
-
-## Build
-
-* `go get github.com/surgemq/surgemq`
-* `cd $GOPATH/src/github.com/surgemq/surgemq/examples/surgemq/`
-* `go build`
+Standalone MQTT broker, creates listeners for plaintext MQTT, Websocket and Secure Websocket. Without any options, mqtt-broker listens on port 1883 for plaintext MQTT.
 
 ## Usage
 
@@ -25,7 +19,7 @@ Standalone SurgeMQ server, creates listeners for plaintext MQTT, Websocket and S
 ## Websocket listener
 
 1. In addition to listening for MQTT traffic on port 1883, the standalone server can be configured to listen for websocket over HTTP or HTTPS.
-2. `surgemq -wsaddr :8080` will start the server to listen for Websocket on port 8080
+2. `mqtt-broker -wsaddr :8080` will start the server to listen for Websocket on port 8080
 
 ## Self-signed Websocket listener
 
@@ -34,7 +28,7 @@ The following steps will setup the server to use a self-signed certificate.
 1. Generate a self-signed TLS certificate:
 `openssl genrsa -out key.pem 2048; openssl req -new -key key.pem -out csr.pem; openssl req -x509 -days 365 -key key.pem -in csr.pem -out certificate.pem`
 
-2. Start standalone server: `surgemq.exe -wssaddr :8443 -wsscertpath certificate.pem -wsskeypath key.pem`
+2. Start standalone server: `mqtt-broker -wssaddr :8443 -wsscertpath certificate.pem -wsskeypath key.pem`
 
 3. For self-signed certificate, add a security exception to the browser (eg: http://www.poweradmin.com/help/sslhints/firefox.aspx)
 
