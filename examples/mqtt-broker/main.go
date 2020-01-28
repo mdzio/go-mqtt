@@ -16,16 +16,16 @@ package main
 
 import (
 	"flag"
-	"log"
 	"os"
 	"os/signal"
 	"runtime/pprof"
 
-	"github.com/mdzio/go-mqtt/glog"
+	"github.com/mdzio/go-logging"
 	"github.com/mdzio/go-mqtt/service"
 )
 
 var (
+	logLevel         = logging.InfoLevel
 	keepAlive        int
 	connectTimeout   int
 	ackTimeout       int
@@ -38,9 +38,16 @@ var (
 	wssAddr          string // HTTPS websocket address, eg. :8081
 	wssCertPath      string // path to HTTPS public key
 	wssKeyPath       string // path to HTTPS private key
+
+	log = logging.Get("mqtt-broker")
 )
 
 func init() {
+	flag.Var(
+		&logLevel,
+		"log",
+		"specifies the minimum `severity` of printed log messages: off, error, warning, info, debug or trace",
+	)
 	flag.IntVar(&keepAlive, "keepalive", service.DefaultKeepAlive, "Keepalive (sec)")
 	flag.IntVar(&connectTimeout, "connecttimeout", service.DefaultConnectTimeout, "Connect Timeout (sec)")
 	flag.IntVar(&ackTimeout, "acktimeout", service.DefaultAckTimeout, "Ack Timeout (sec)")
@@ -72,7 +79,8 @@ func main() {
 	if cpuprofile != "" {
 		f, err = os.Create(cpuprofile)
 		if err != nil {
-			log.Fatal(err)
+			log.Error(err)
+			os.Exit(1)
 		}
 
 		pprof.StartCPUProfile(f)
@@ -82,10 +90,10 @@ func main() {
 	signal.Notify(sigchan, os.Interrupt, os.Kill)
 	go func() {
 		sig := <-sigchan
-		glog.Errorf("Existing due to trapped signal; %v", sig)
+		log.Errorf("Existing due to trapped signal; %v", sig)
 
 		if f != nil {
-			glog.Errorf("Stopping profile")
+			log.Errorf("Stopping profile")
 			pprof.StopCPUProfile()
 			f.Close()
 		}
@@ -113,6 +121,6 @@ func main() {
 	/* create plain MQTT listener */
 	err = svr.ListenAndServe(mqttaddr)
 	if err != nil {
-		glog.Errorf("surgemq/main: %v", err)
+		log.Errorf("surgemq/main: %v", err)
 	}
 }

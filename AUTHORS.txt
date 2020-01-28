@@ -1,0 +1,6 @@
+# This is the official list of SurgeMQ authors for copyright purposes.
+
+Jian Zhen <zhenjl@gmail.com>
+KADOTA Kyohei <lufia@me.com>
+Martin Rauscher <first-letter@rauscheronline.de>
+Mathias Dzionsko
