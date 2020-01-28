@@ -15,6 +15,7 @@
 package service
 
 import (
+	"crypto/tls"
 	"fmt"
 	"net"
 	"net/url"
@@ -72,6 +73,87 @@ func (this *Client) Connect(uri string, msg *message.ConnectMessage) (err error)
 	}
 
 	conn, err := net.Dial(u.Scheme, u.Host)
+	if err != nil {
+		return err
+	}
+
+	defer func() {
+		if err != nil {
+			conn.Close()
+		}
+	}()
+
+	if msg.KeepAlive() < minKeepAlive {
+		msg.SetKeepAlive(minKeepAlive)
+	}
+
+	if err = writeMessage(conn, msg); err != nil {
+		return err
+	}
+
+	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(this.ConnectTimeout)))
+
+	resp, err := getConnackMessage(conn)
+	if err != nil {
+		return err
+	}
+
+	if resp.ReturnCode() != message.ConnectionAccepted {
+		return resp.ReturnCode()
+	}
+
+	this.svc = &service{
+		id:     atomic.AddUint64(&gsvcid, 1),
+		client: true,
+		conn:   conn,
+
+		keepAlive:      int(msg.KeepAlive()),
+		connectTimeout: this.ConnectTimeout,
+		ackTimeout:     this.AckTimeout,
+		timeoutRetries: this.TimeoutRetries,
+	}
+
+	err = this.getSession(this.svc, msg, resp)
+	if err != nil {
+		return err
+	}
+
+	p := topics.NewMemProvider()
+	topics.Register(this.svc.sess.ID(), p)
+
+	this.svc.topicsMgr, err = topics.NewManager(this.svc.sess.ID())
+	if err != nil {
+		return err
+	}
+
+	if err := this.svc.start(); err != nil {
+		this.svc.stop()
+		return err
+	}
+
+	this.svc.inStat.increment(int64(msg.Len()))
+	this.svc.outStat.increment(int64(resp.Len()))
+
+	return nil
+}
+
+func (this *Client) ConnectTLS(uri string, msg *message.ConnectMessage, cfg *tls.Config) (err error) {
+	this.checkConfiguration()
+
+	if msg == nil {
+		return fmt.Errorf("msg is nil")
+	}
+
+	u, err := url.Parse(uri)
+	if err != nil {
+		return err
+	}
+
+	if u.Scheme != "tcp" {
+		return ErrInvalidConnectionType
+	}
+
+	conn, err := tls.Dial(u.Scheme, u.Host, cfg)
 	if err != nil {
 		return err
 	}
