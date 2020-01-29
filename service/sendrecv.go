@@ -51,10 +51,10 @@ func (this *service) receiver() {
 
 		this.wgStopped.Done()
 
-		log.Debugf("(%s) Stopping receiver", this.cid())
+		log.Tracef("(%s) Receiver stopped", this.cid())
 	}()
 
-	log.Debugf("(%s) Starting receiver", this.cid())
+	log.Tracef("(%s) Starting receiver", this.cid())
 
 	this.wgStarted.Done()
 
@@ -96,10 +96,10 @@ func (this *service) sender() {
 
 		this.wgStopped.Done()
 
-		log.Debugf("(%s) Stopping sender", this.cid())
+		log.Tracef("(%s) Sender stopped", this.cid())
 	}()
 
-	log.Debugf("(%s) Starting sender", this.cid())
+	log.Tracef("(%s) Starting sender", this.cid())
 
 	this.wgStarted.Done()
 
@@ -110,7 +110,7 @@ func (this *service) sender() {
 
 			if err != nil {
 				if err != io.EOF {
-					log.Errorf("(%s) error writing data: %v", this.cid(), err)
+					log.Errorf("(%s) Error writing data: %v", this.cid(), err)
 				}
 				return
 			}

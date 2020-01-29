@@ -138,7 +138,7 @@ func (this *Server) ListenAndServe(uri string) error {
 	}
 	defer this.ln.Close()
 
-	log.Infof("server/ListenAndServe: server is ready...")
+	log.Trace("Listening for MQTT connections")
 
 	var tempDelay time.Duration // how long to sleep on accept failure
 
@@ -164,7 +164,7 @@ func (this *Server) ListenAndServe(uri string) error {
 				if max := 1 * time.Second; tempDelay > max {
 					tempDelay = max
 				}
-				log.Errorf("server/ListenAndServe: Accept error: %v; retrying in %v", err, tempDelay)
+				log.Warningf("Accept error: %v", err)
 				time.Sleep(tempDelay)
 				continue
 			}
@@ -175,6 +175,8 @@ func (this *Server) ListenAndServe(uri string) error {
 	}
 }
 
+// FIXME: ListenAndServeTLS and ListenAndServe can not be used together. Field ln
+// is used by both.
 func (this *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
 	defer atomic.CompareAndSwapInt32(&this.running, 1, 0)
 
@@ -196,7 +198,7 @@ func (this *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
 	}
 	defer this.ln.Close()
 
-	log.Infof("server/ListenAndServe: server is ready...")
+	log.Trace("Listening for Secure MQTT connections")
 
 	var tempDelay time.Duration // how long to sleep on accept failure
 
@@ -222,7 +224,7 @@ func (this *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
 				if max := 1 * time.Second; tempDelay > max {
 					tempDelay = max
 				}
-				log.Errorf("server/ListenAndServe: Accept error: %v; retrying in %v", err, tempDelay)
+				log.Warningf("Accept error: %v", err)
 				time.Sleep(tempDelay)
 				continue
 			}
@@ -233,11 +235,14 @@ func (this *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
 	}
 }
 
-// Publish sends a single MQTT PUBLISH message to the server. On completion, the
-// supplied OnCompleteFunc is called. For QOS 0 messages, onComplete is called
-// immediately after the message is sent to the outgoing buffer. For QOS 1 messages,
-// onComplete is called when PUBACK is received. For QOS 2 messages, onComplete is
-// called after the PUBCOMP message is received.
+// Publish sends a single MQTT PUBLISH message to the server.
+//
+// On completion, the supplied OnCompleteFunc is called. For QOS 0 messages,
+// onComplete is called immediately after the message is sent to the outgoing
+// buffer. For QOS 1 messages, onComplete is called when PUBACK is received. For
+// QOS 2 messages, onComplete is called after the PUBCOMP message is received.
+//
+// Publish can not be used by multiple goroutines at the same time.
 func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
 	if err := this.checkConfiguration(); err != nil {
 		return err
@@ -245,7 +250,7 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 
 	if msg.Retain() {
 		if err := this.topicsMgr.Retain(msg); err != nil {
-			log.Errorf("Error retaining message: %v", err)
+			log.Errorf("Retaining of message failed: %v", err)
 		}
 	}
 
@@ -255,12 +260,11 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 
 	msg.SetRetain(false)
 
-	//log.Debugf("(server) Publishing to topic %q and %d subscribers", string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
 			fn, ok := s.(*OnPublishFunc)
 			if !ok {
-				log.Errorf("Invalid onPublish Function")
+				log.Errorf("Subscriber must implement OnPublishFunc")
 			} else {
 				(*fn)(msg)
 			}
@@ -284,7 +288,7 @@ func (this *Server) Close() error {
 	}
 
 	for _, svc := range this.svcs {
-		log.Infof("Stopping service %d", svc.id)
+		log.Tracef("Stopping service: %d", svc.id)
 		svc.stop()
 	}
 
@@ -341,7 +345,6 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	req, err := getConnectMessage(conn)
 	if err != nil {
 		if cerr, ok := err.(message.ConnackCode); ok {
-			//log.Debugf("request   message: %s\nresponse message: %s\nerror           : %v", mreq, resp, err)
 			resp.SetReturnCode(cerr)
 			resp.SetSessionPresent(false)
 			writeMessage(conn, resp)
@@ -398,7 +401,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	//this.svcs = append(this.svcs, svc)
 	//this.mu.Unlock()
 
-	log.Infof("(%s) server/handleConnection: Connection established.", svc.cid())
+	log.Debugf("(%s) Connection established", svc.cid())
 
 	return svc, nil
 }
