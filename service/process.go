@@ -252,7 +252,7 @@ func (this *service) processAcked(ackq *sessions.Ackqueue) {
 				log.Errorf("Invalid OnCompleteFunc: %v", reflect.TypeOf(ackmsg.OnComplete))
 			} else if onComplete != nil {
 				if err := onComplete(msg, ack, nil); err != nil {
-					log.Warningf("Running onComplete failed: %v", err)
+					log.Warningf("OnCompleteFunc failed: %v", err)
 				}
 			}
 		}

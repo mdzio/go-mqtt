@@ -21,6 +21,7 @@ import (
 	"io"
 	"net"
 	"net/url"
+	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -108,9 +109,6 @@ type Server struct {
 
 	// A indicator on whether this server has already checked configuration
 	configOnce sync.Once
-
-	subs []interface{}
-	qoss []byte
 }
 
 // ListenAndServe listents to connections on the URI requested, and handles any
@@ -241,8 +239,6 @@ func (this *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
 // onComplete is called immediately after the message is sent to the outgoing
 // buffer. For QOS 1 messages, onComplete is called when PUBACK is received. For
 // QOS 2 messages, onComplete is called after the PUBCOMP message is received.
-//
-// Publish can not be used by multiple goroutines at the same time.
 func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
 	if err := this.checkConfiguration(); err != nil {
 		return err
@@ -254,19 +250,24 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 		}
 	}
 
-	if err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss); err != nil {
+	var subs []interface{}
+	var qoss []byte
+
+	if err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &subs, &qoss); err != nil {
 		return err
 	}
 
 	msg.SetRetain(false)
 
-	for _, s := range this.subs {
+	for _, s := range subs {
 		if s != nil {
 			fn, ok := s.(*OnPublishFunc)
 			if !ok {
-				log.Errorf("Subscriber must implement OnPublishFunc")
+				log.Errorf("Invalid OnPublishFunc: %v", reflect.TypeOf(s))
 			} else {
-				(*fn)(msg)
+				if err := (*fn)(msg); err != nil {
+					log.Warningf("OnPublishFunc failed: %v", err)
+				}
 			}
 		}
 	}
@@ -504,28 +505,4 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 	}
 
 	return nil
-}
-
-// AuthMgr returns the authentication manager.
-func (svr *Server) AuthMgr() (*auth.Manager, error) {
-	if err := svr.checkConfiguration(); err != nil {
-		return nil, err
-	}
-	return svr.authMgr, nil
-}
-
-// SessMgr returns the session manager.
-func (svr *Server) SessMgr() (*sessions.Manager, error) {
-	if err := svr.checkConfiguration(); err != nil {
-		return nil, err
-	}
-	return svr.sessMgr, nil
-}
-
-// TopicsMgr returns the topics manager.
-func (svr *Server) TopicsMgr() (*topics.Manager, error) {
-	if err := svr.checkConfiguration(); err != nil {
-		return nil, err
-	}
-	return svr.topicsMgr, nil
 }
