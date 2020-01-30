@@ -250,7 +250,7 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 
 	if msg.Retain() {
 		if err := this.topicsMgr.Retain(msg); err != nil {
-			log.Errorf("Retaining of message failed: %v", err)
+			log.Warningf("Un-/Retaining of message failed: %v", err)
 		}
 	}
 
@@ -397,9 +397,9 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		return nil, err
 	}
 
-	//this.mu.Lock()
-	//this.svcs = append(this.svcs, svc)
-	//this.mu.Unlock()
+	this.mu.Lock()
+	this.svcs = append(this.svcs, svc)
+	this.mu.Unlock()
 
 	log.Debugf("(%s) Connection established", svc.cid())
 
@@ -504,4 +504,28 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 	}
 
 	return nil
+}
+
+// AuthMgr returns the authentication manager.
+func (svr *Server) AuthMgr() (*auth.Manager, error) {
+	if err := svr.checkConfiguration(); err != nil {
+		return nil, err
+	}
+	return svr.authMgr, nil
+}
+
+// SessMgr returns the session manager.
+func (svr *Server) SessMgr() (*sessions.Manager, error) {
+	if err := svr.checkConfiguration(); err != nil {
+		return nil, err
+	}
+	return svr.sessMgr, nil
+}
+
+// TopicsMgr returns the topics manager.
+func (svr *Server) TopicsMgr() (*topics.Manager, error) {
+	if err := svr.checkConfiguration(); err != nil {
+		return nil, err
+	}
+	return svr.topicsMgr, nil
 }

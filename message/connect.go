@@ -20,12 +20,26 @@ import (
 	"regexp"
 )
 
-var clientIdRegexp *regexp.Regexp
+// MQTT 3.1.3.1: Client Identifier
+//
+// The Server MUST allow ClientID’s which are between 1 and 23 UTF-8 encoded
+// bytes in length, and that contain only the characters:
+// "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+//
+// The ServerMAY allowClientId’s that contain more than 23 encoded bytes. The
+// ServerMAY allow ClientId’s that contain characters not included in the list
+// given above.
+
+// regular expression for the client identifier
+var clientIDRegexp *regexp.Regexp
 
 func init() {
-	// Added space for Paho compliance test
-	// Added underscore (_) for MQTT C client test
-	clientIdRegexp = regexp.MustCompile("^[0-9a-zA-Z _]*$")
+	// regular expression for the client identifier
+	//
+	// (added space for Paho compliance test, added underscore (_) for MQTT C
+	// client test, added hyphen (-) for mosquitto_sub, maximum length raised to
+	// 32 for MQTT.fx)
+	clientIDRegexp = regexp.MustCompile("^[0-9a-zA-Z _-]{0,32}$")
 }
 
 // After a Network Connection is established by a Client to a Server, the first Packet
@@ -615,21 +629,8 @@ func (this *ConnectMessage) msglen() int {
 	return total
 }
 
-// validClientId checks the client ID, which is a slice of bytes, to see if it's valid.
-// Client ID is valid if it meets the requirement from the MQTT spec:
-// 		The Server MUST allow ClientIds which are between 1 and 23 UTF-8 encoded bytes in length,
-//		and that contain only the characters
-//
-//		"0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
-func (this *ConnectMessage) validClientId(cid []byte) bool {
-	// Fixed https://github.com/mdzio/go-mqtt/issues/4
-	//if len(cid) > 23 {
-	//	return false
-	//}
-
-	if this.Version() == 0x3 {
-		return true
-	}
-
-	return clientIdRegexp.Match(cid)
+// validClientId checks the client ID, which is a slice of bytes, to see if it's
+// valid.
+func (cm *ConnectMessage) validClientId(cid []byte) bool {
+	return clientIDRegexp.Match(cid)
 }

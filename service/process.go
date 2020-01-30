@@ -17,7 +17,6 @@ package service
 import (
 	"errors"
 	"fmt"
-	"io"
 	"reflect"
 
 	"github.com/mdzio/go-mqtt/message"
@@ -50,17 +49,17 @@ func (this *service) processor() {
 		// 1. Find out what message is next and the size of the message
 		mtype, total, err := this.peekMessageSize()
 		if err != nil {
-			//if err != io.EOF {
-			log.Warningf("(%s) Error peeking next message size: %v", this.cid(), err)
-			//}
+			if !isEOF(err) {
+				log.Warningf("(%s) Error peeking next message size: %v", this.cid(), err)
+			}
 			return
 		}
 
 		msg, n, err := this.peekMessage(mtype, total)
 		if err != nil {
-			//if err != io.EOF {
-			log.Warningf("(%s) Error peeking next message: %v", this.cid(), err)
-			//}
+			if !isEOF(err) {
+				log.Warningf("(%s) Error peeking next message: %v", this.cid(), err)
+			}
 			return
 		}
 
@@ -81,7 +80,7 @@ func (this *service) processor() {
 		// 7. We should commit the bytes in the buffer so we can move on
 		_, err = this.in.ReadCommit(total)
 		if err != nil {
-			if err != io.EOF {
+			if !isEOF(err) {
 				log.Errorf("(%s) Error committing %d read bytes: %v", this.cid(), total, err)
 			}
 			return
@@ -360,7 +359,7 @@ func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 func (this *service) onPublish(msg *message.PublishMessage) error {
 	if msg.Retain() {
 		if err := this.topicsMgr.Retain(msg); err != nil {
-			log.Errorf("(%s) Error retaining message: %v", this.cid(), err)
+			log.Warningf("(%s) Un-/Retaining of message failed: %v", this.cid(), err)
 		}
 	}
 

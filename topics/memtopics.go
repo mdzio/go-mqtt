@@ -368,7 +368,7 @@ func (this *rnode) rremove(topic []byte) error {
 	// Find the rnode that matches the topic level
 	n, ok := this.rnodes[level]
 	if !ok {
-		return fmt.Errorf("memtopics/rremove: No topic found")
+		return fmt.Errorf("Retained topic not found")
 	}
 
 	// Remove the subscriber from the next level rnode
