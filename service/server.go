@@ -275,6 +275,30 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 	return nil
 }
 
+// Subscribe registers a callback for a topic.
+func (s *Server) Subscribe(topic string, qos byte, onPublish *OnPublishFunc) error {
+	log.Debugf("Subscribing topic %q with QoS %v for callback %p", topic, qos, onPublish)
+	if err := s.checkConfiguration(); err != nil {
+		return err
+	}
+	if _, err := s.topicsMgr.Subscribe([]byte(topic), qos, onPublish); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Unsubscribe deregisters a callback for a topic.
+func (s *Server) Unsubscribe(topic string, onPublish *OnPublishFunc) error {
+	log.Debugf("Unsubscribing topic %q for callback %p", topic, onPublish)
+	if err := s.checkConfiguration(); err != nil {
+		return err
+	}
+	if err := s.topicsMgr.Unsubscribe([]byte(topic), onPublish); err != nil {
+		return err
+	}
+	return nil
+}
+
 // Close terminates the server by shutting down all the client connections and closing
 // the listener. It will, as best it can, clean up after itself.
 func (this *Server) Close() error {
