@@ -21,7 +21,6 @@ import (
 	"io"
 	"net"
 	"net/url"
-	"reflect"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -261,13 +260,9 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 
 	for _, s := range subs {
 		if s != nil {
-			fn, ok := s.(*OnPublishFunc)
-			if !ok {
-				log.Errorf("Invalid OnPublishFunc: %v", reflect.TypeOf(s))
-			} else {
-				if err := (*fn)(msg); err != nil {
-					log.Warningf("OnPublishFunc failed: %v", err)
-				}
+			fn := s.(*OnPublishFunc)
+			if err := (*fn)(msg); err != nil {
+				log.Warningf("%v", err)
 			}
 		}
 	}

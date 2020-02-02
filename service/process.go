@@ -371,15 +371,12 @@ func (this *service) onPublish(msg *message.PublishMessage) error {
 
 	msg.SetRetain(false)
 
-	//log.Debugf("(%s) Publishing to topic %q and %d subscribers", this.cid(), string(msg.Topic()), len(this.subs))
 	for _, s := range this.subs {
 		if s != nil {
-			fn, ok := s.(*OnPublishFunc)
-			if !ok {
-				log.Errorf("Invalid onPublish Function")
-				return fmt.Errorf("Invalid onPublish Function")
+			fn := s.(*OnPublishFunc)
+			if err := (*fn)(msg); err != nil {
+				log.Warningf("%v", err)
 			}
-			(*fn)(msg)
 		}
 	}
 
