@@ -371,9 +371,11 @@ func (this *service) onPublish(msg *message.PublishMessage) error {
 
 	msg.SetRetain(false)
 
-	for _, s := range this.subs {
+	for i, s := range this.subs {
 		if s != nil {
 			fn := s.(*OnPublishFunc)
+			// use the possibly downgraded qos
+			msg.SetQoS(this.qoss[i])
 			if err := (*fn)(msg); err != nil {
 				log.Warningf("%v", err)
 			}

@@ -498,23 +498,44 @@ func nextTopicLevel(topic []byte) ([]byte, []byte, error) {
 	return topic, nil, nil
 }
 
-// The QoS of the payload messages sent in response to a subscription must be the
-// minimum of the QoS of the originally published message (in this case, it's the
-// qos parameter) and the maximum QoS granted by the server (in this case, it's
-// the QoS in the topic tree).
+// The QoS of the payload messages sent in response to a subscription must be
+// the minimum of the QoS of the originally published message (in this case,
+// it's the qos parameter) and the maximum QoS granted by the server (in this
+// case, it's the QoS in the topic tree).
 //
-// It's also possible that even if the topic matches, the subscriber is not included
-// due to the QoS granted is lower than the published message QoS. For example,
-// if the client is granted only QoS 0, and the publish message is QoS 1, then this
-// client is not to be send the published message.
+// This requirement from the specification is inconsistent with the non-normative
+// comments:
+//
+// If a subscribing Client has been granted maximum QoS 1 for a particular Topic
+// Filter, then a QoS 0 Application Message matching the filter is delivered to
+// the Client at QoS 0. This means that at most one copy of the message is
+// received by the Client. On the other hand, a QoS 2 Message published to the
+// same topic is downgraded by the Server to QoS 1 for delivery to the Client,
+// so that Client might receive duplicate copies of the Message.
+//
+// If the subscribing Client has been granted maximum QoS 0, then an Application
+// Message originally published as QoS 2 might get lost on the hop to the
+// Client, but the Server should never send a duplicate of that Message. A QoS 1
+// Message published to the same topic might either get lost or duplicated on
+// its transmission to that Client.
+//
+// Subscribing to a Topic Filter at QoS 2 is equivalent to saying "I would like
+// to receive Messages matching this filter at the QoS with which they were
+// published". This means a publisher is responsible for determining the maximum
+// QoS a Message can be delivered at, but a subscriber is able to require that
+// the Server downgrades the QoS to one more suitable for its usage.
+//
+// The MQTT server Mosquitto downgrades also the QoS.
 func (this *snode) matchQos(qos byte, subs *[]interface{}, qoss *[]byte) {
 	for i, sub := range this.subs {
-		// If the published QoS is higher than the subscriber QoS, then we skip the
-		// subscriber. Otherwise, add to the list.
-		if qos <= this.qos[i] {
-			*subs = append(*subs, sub)
-			*qoss = append(*qoss, qos)
+		// If the published QoS is higher than the subscriber QoS, then the QoS of the
+		// message is downgraded.
+		eqos := qos
+		if eqos > this.qos[i] {
+			eqos = this.qos[i]
 		}
+		*subs = append(*subs, sub)
+		*qoss = append(*qoss, eqos)
 	}
 }
 
