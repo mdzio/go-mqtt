@@ -258,9 +258,11 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 
 	msg.SetRetain(false)
 
-	for _, s := range subs {
+	for i, s := range subs {
 		if s != nil {
 			fn := s.(*OnPublishFunc)
+			// use the possibly downgraded qos
+			msg.SetQoS(qoss[i])
 			if err := (*fn)(msg); err != nil {
 				log.Warningf("%v", err)
 			}
