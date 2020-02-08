@@ -243,6 +243,20 @@ func (m *PublishMessage) Encode(dst []byte) (int, error) {
 	return total, nil
 }
 
+// Clone create a deep clone of the message.
+func (m *PublishMessage) Clone() (*PublishMessage, error) {
+	l := m.Len()
+	buf := make([]byte, l)
+	if _, err := m.Encode(buf); err != nil {
+		return nil, err
+	}
+	cm := NewPublishMessage()
+	if _, err := cm.Decode(buf); err != nil {
+		return nil, err
+	}
+	return cm, nil
+}
+
 func (m *PublishMessage) msglen() int {
 	total := 2 + len(m.topic) + len(m.payload)
 	if m.QoS() != 0 {

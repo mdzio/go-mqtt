@@ -313,9 +313,28 @@ func (p *service) processSubscribe(msg *message.SubscribeMessage) error {
 
 		retcodes = append(retcodes, rqos)
 
-		// yeah I am not checking errors here. If there's an error we don't want the
-		// subscription to stop, just let it go.
-		p.topicsMgr.Retained(t, &p.rmsgs)
+		// collect retained messages and possibly downgrade qos
+		rlen := len(p.rmsgs)
+		if err := p.topicsMgr.Retained(t, &p.rmsgs); err != nil {
+			log.Warning("Getting retained messages failed: %v", err)
+		} else {
+			nrmsgs := p.rmsgs[rlen:]
+			for j := range nrmsgs {
+				if nrmsgs[j].QoS() > rqos {
+					// do not alter retained message
+					m, err := nrmsgs[j].Clone()
+					if err != nil {
+						log.Warning("Clone of message failed: %v", err)
+					} else {
+						// downgrade qos
+						m.SetQoS(rqos)
+						// affects p.rmsgs
+						nrmsgs[j] = m
+					}
+				}
+			}
+		}
+
 		log.Debugf("(%s) Subscribing topic %q, %d retained messages", p.cid(), string(t), len(p.rmsgs))
 	}
 
