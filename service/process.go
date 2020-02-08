@@ -28,72 +28,72 @@ var (
 )
 
 // processor() reads messages from the incoming buffer and processes them
-func (this *service) processor() {
+func (p *service) processor() {
 	defer func() {
 		// Let's recover from panic
 		if r := recover(); r != nil {
-			log.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
+			log.Errorf("(%s) Recovering from panic: %v", p.cid(), r)
 		}
 
-		this.wgStopped.Done()
-		this.stop()
+		p.wgStopped.Done()
+		p.stop()
 
-		log.Tracef("(%s) Processor stopped", this.cid())
+		log.Tracef("(%s) Processor stopped", p.cid())
 	}()
 
-	log.Tracef("(%s) Starting processor", this.cid())
+	log.Tracef("(%s) Starting processor", p.cid())
 
-	this.wgStarted.Done()
+	p.wgStarted.Done()
 
 	for {
 		// 1. Find out what message is next and the size of the message
-		mtype, total, err := this.peekMessageSize()
+		mtype, total, err := p.peekMessageSize()
 		if err != nil {
 			if !isEOF(err) {
-				log.Warningf("(%s) Error peeking next message size: %v", this.cid(), err)
+				log.Warningf("(%s) Error peeking next message size: %v", p.cid(), err)
 			}
 			return
 		}
 
-		msg, n, err := this.peekMessage(mtype, total)
+		msg, n, err := p.peekMessage(mtype, total)
 		if err != nil {
 			if !isEOF(err) {
-				log.Warningf("(%s) Error peeking next message: %v", this.cid(), err)
+				log.Warningf("(%s) Error peeking next message: %v", p.cid(), err)
 			}
 			return
 		}
 
-		//log.Debugf("(%s) Received: %s", this.cid(), msg)
+		//log.Debugf("(%s) Received: %s", p.cid(), msg)
 
-		this.inStat.increment(int64(n))
+		p.inStat.increment(int64(n))
 
 		// 5. Process the read message
-		err = this.processIncoming(msg)
+		err = p.processIncoming(msg)
 		if err != nil {
 			if err != errDisconnect {
-				log.Warningf("(%s) Error processing %s: %v", this.cid(), msg.Name(), err)
+				log.Warningf("(%s) Error processing %s: %v", p.cid(), msg.Name(), err)
 			} else {
 				return
 			}
 		}
 
 		// 7. We should commit the bytes in the buffer so we can move on
-		_, err = this.in.ReadCommit(total)
+		_, err = p.in.ReadCommit(total)
 		if err != nil {
 			if !isEOF(err) {
-				log.Errorf("(%s) Error committing %d read bytes: %v", this.cid(), total, err)
+				log.Errorf("(%s) Error committing %d read bytes: %v", p.cid(), total, err)
 			}
 			return
 		}
 
 		// 7. Check to see if done is closed, if so, exit
-		if this.isDone() && this.in.Len() == 0 {
+		if p.isDone() && p.in.Len() == 0 {
 			return
 		}
 	}
 }
 
-func (this *service) processIncoming(msg message.Message) error {
+func (p *service) processIncoming(msg message.Message) error {
 	var err error = nil
 
 	switch msg := msg.(type) {
@@ -102,87 +102,87 @@ func (this *service) processIncoming(msg message.Message) error {
 		// If QoS == 0, we should just take the next step, no ack required
 		// If QoS == 1, we should send back PUBACK, then take the next step
 		// If QoS == 2, we need to put it in the ack queue, send back PUBREC
-		err = this.processPublish(msg)
+		err = p.processPublish(msg)
 
 	case *message.PubackMessage:
 		// For PUBACK message, it means QoS 1, we should send to ack queue
-		this.sess.Pub1ack.Ack(msg)
-		this.processAcked(this.sess.Pub1ack)
+		p.sess.Pub1ack.Ack(msg)
+		p.processAcked(p.sess.Pub1ack)
 
 	case *message.PubrecMessage:
 		// For PUBREC message, it means QoS 2, we should send to ack queue, and send back PUBREL
-		if err = this.sess.Pub2out.Ack(msg); err != nil {
+		if err = p.sess.Pub2out.Ack(msg); err != nil {
 			break
 		}
 
 		resp := message.NewPubrelMessage()
 		resp.SetPacketId(msg.PacketId())
-		_, err = this.writeMessage(resp)
+		_, err = p.writeMessage(resp)
 
 	case *message.PubrelMessage:
 		// For PUBREL message, it means QoS 2, we should send to ack queue, and send back PUBCOMP
-		if err = this.sess.Pub2in.Ack(msg); err != nil {
+		if err = p.sess.Pub2in.Ack(msg); err != nil {
 			break
 		}
 
-		this.processAcked(this.sess.Pub2in)
+		p.processAcked(p.sess.Pub2in)
 
 		resp := message.NewPubcompMessage()
 		resp.SetPacketId(msg.PacketId())
-		_, err = this.writeMessage(resp)
+		_, err = p.writeMessage(resp)
 
 	case *message.PubcompMessage:
 		// For PUBCOMP message, it means QoS 2, we should send to ack queue
-		if err = this.sess.Pub2out.Ack(msg); err != nil {
+		if err = p.sess.Pub2out.Ack(msg); err != nil {
 			break
 		}
 
-		this.processAcked(this.sess.Pub2out)
+		p.processAcked(p.sess.Pub2out)
 
 	case *message.SubscribeMessage:
 		// For SUBSCRIBE message, we should add subscriber, then send back SUBACK
-		return this.processSubscribe(msg)
+		return p.processSubscribe(msg)
 
 	case *message.SubackMessage:
 		// For SUBACK message, we should send to ack queue
-		this.sess.Suback.Ack(msg)
-		this.processAcked(this.sess.Suback)
+		p.sess.Suback.Ack(msg)
+		p.processAcked(p.sess.Suback)
 
 	case *message.UnsubscribeMessage:
 		// For UNSUBSCRIBE message, we should remove subscriber, then send back UNSUBACK
-		return this.processUnsubscribe(msg)
+		return p.processUnsubscribe(msg)
 
 	case *message.UnsubackMessage:
 		// For UNSUBACK message, we should send to ack queue
-		this.sess.Unsuback.Ack(msg)
-		this.processAcked(this.sess.Unsuback)
+		p.sess.Unsuback.Ack(msg)
+		p.processAcked(p.sess.Unsuback)
 
 	case *message.PingreqMessage:
 		// For PINGREQ message, we should send back PINGRESP
 		resp := message.NewPingrespMessage()
-		_, err = this.writeMessage(resp)
+		_, err = p.writeMessage(resp)
 
 	case *message.PingrespMessage:
-		this.sess.Pingack.Ack(msg)
-		this.processAcked(this.sess.Pingack)
+		p.sess.Pingack.Ack(msg)
+		p.processAcked(p.sess.Pingack)
 
 	case *message.DisconnectMessage:
 		// For DISCONNECT message, we should quit
-		this.sess.Cmsg.SetWillFlag(false)
+		p.sess.Cmsg.SetWillFlag(false)
 		return errDisconnect
 
 	default:
-		return fmt.Errorf("(%s) Invalid message type: %s", this.cid(), msg.Name())
+		return fmt.Errorf("(%s) Invalid message type: %s", p.cid(), msg.Name())
 	}
 
 	if err != nil {
-		log.Warningf("(%s) Error processing acknowledged message: %v", this.cid(), err)
+		log.Warningf("(%s) Error processing acknowledged message: %v", p.cid(), err)
 	}
 
 	return err
 }
 
-func (this *service) processAcked(ackq *sessions.Ackqueue) {
+func (p *service) processAcked(ackq *sessions.Ackqueue) {
 	for _, ackmsg := range ackq.Acked() {
 		// Let's get the messages from the saved message byte slices.
 		msg, err := ackmsg.Mtype.New()
@@ -207,7 +207,7 @@ func (this *service) processAcked(ackq *sessions.Ackqueue) {
 			continue
 		}
 
-		//log.Debugf("(%s) Processing acknowledged message: %v", this.cid(), ack)
+		//log.Debugf("(%s) Processing acknowledged message: %v", p.cid(), ack)
 
 		// - PUBACK if it's QoS 1 message. This is on the client side.
 		// - PUBREL if it's QoS 2 message. This is on the server side.
@@ -218,8 +218,8 @@ func (this *service) processAcked(ackq *sessions.Ackqueue) {
 		case message.PUBREL:
 			// If ack is PUBREL, that means the QoS 2 message sent by a remote client is
 			// releassed, so let's publish it to other subscribers.
-			if err = this.onPublish(msg.(*message.PublishMessage)); err != nil {
-				log.Warningf("(%s) Error processing acknowledged %s message: %v", this.cid(), ackmsg.Mtype, err)
+			if err = p.onPublish(msg.(*message.PublishMessage)); err != nil {
+				log.Warningf("(%s) Error processing acknowledged %s message: %v", p.cid(), ackmsg.Mtype, err)
 			}
 
 		case message.PUBACK, message.PUBCOMP, message.SUBACK, message.UNSUBACK, message.PINGRESP:
@@ -241,7 +241,7 @@ func (this *service) processAcked(ackq *sessions.Ackqueue) {
 			err = nil
 
 		default:
-			log.Warningf("(%s) Invalid acknowledged message type: %s", this.cid(), ackmsg.State)
+			log.Warningf("(%s) Invalid acknowledged message type: %s", p.cid(), ackmsg.State)
 			continue
 		}
 
@@ -263,36 +263,36 @@ func (this *service) processAcked(ackq *sessions.Ackqueue) {
 // If QoS == 0, we should just take the next step, no ack required
 // If QoS == 1, we should send back PUBACK, then take the next step
 // If QoS == 2, we need to put it in the ack queue, send back PUBREC
-func (this *service) processPublish(msg *message.PublishMessage) error {
+func (p *service) processPublish(msg *message.PublishMessage) error {
 	switch msg.QoS() {
 	case message.QosExactlyOnce:
-		this.sess.Pub2in.Wait(msg, nil)
+		p.sess.Pub2in.Wait(msg, nil)
 
 		resp := message.NewPubrecMessage()
 		resp.SetPacketId(msg.PacketId())
 
-		_, err := this.writeMessage(resp)
+		_, err := p.writeMessage(resp)
 		return err
 
 	case message.QosAtLeastOnce:
 		resp := message.NewPubackMessage()
 		resp.SetPacketId(msg.PacketId())
 
-		if _, err := this.writeMessage(resp); err != nil {
+		if _, err := p.writeMessage(resp); err != nil {
 			return err
 		}
 
-		return this.onPublish(msg)
+		return p.onPublish(msg)
 
 	case message.QosAtMostOnce:
-		return this.onPublish(msg)
+		return p.onPublish(msg)
 	}
 
-	return fmt.Errorf("(%s) invalid message QoS %d.", this.cid(), msg.QoS())
+	return fmt.Errorf("(%s) invalid message QoS %d", p.cid(), msg.QoS())
 }
 
 // For SUBSCRIBE message, we should add subscriber, then send back SUBACK
-func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
+func (p *service) processSubscribe(msg *message.SubscribeMessage) error {
 	resp := message.NewSubackMessage()
 	resp.SetPacketId(msg.PacketId())
 
@@ -302,34 +302,34 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 	topics := msg.Topics()
 	qos := msg.Qos()
 
-	this.rmsgs = this.rmsgs[0:0]
+	p.rmsgs = p.rmsgs[0:0]
 
 	for i, t := range topics {
-		rqos, err := this.topicsMgr.Subscribe(t, qos[i], &this.onpub)
+		rqos, err := p.topicsMgr.Subscribe(t, qos[i], &p.onpub)
 		if err != nil {
 			return err
 		}
-		this.sess.AddTopic(string(t), qos[i])
+		p.sess.AddTopic(string(t), qos[i])
 
 		retcodes = append(retcodes, rqos)
 
 		// yeah I am not checking errors here. If there's an error we don't want the
 		// subscription to stop, just let it go.
-		this.topicsMgr.Retained(t, &this.rmsgs)
-		log.Debugf("(%s) Subscribing topic %q, %d retained messages", this.cid(), string(t), len(this.rmsgs))
+		p.topicsMgr.Retained(t, &p.rmsgs)
+		log.Debugf("(%s) Subscribing topic %q, %d retained messages", p.cid(), string(t), len(p.rmsgs))
 	}
 
 	if err := resp.AddReturnCodes(retcodes); err != nil {
 		return err
 	}
 
-	if _, err := this.writeMessage(resp); err != nil {
+	if _, err := p.writeMessage(resp); err != nil {
 		return err
 	}
 
-	for _, rm := range this.rmsgs {
-		if err := this.publish(rm, nil); err != nil {
-			log.Warningf("(%s) Error publishing retained message: %v", this.cid(), err)
+	for _, rm := range p.rmsgs {
+		if err := p.publish(rm, nil); err != nil {
+			log.Warningf("(%s) Error publishing retained message: %v", p.cid(), err)
 			return err
 		}
 	}
@@ -338,44 +338,44 @@ func (this *service) processSubscribe(msg *message.SubscribeMessage) error {
 }
 
 // For UNSUBSCRIBE message, we should remove the subscriber, and send back UNSUBACK
-func (this *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
+func (p *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 	topics := msg.Topics()
 
 	for _, t := range topics {
-		this.topicsMgr.Unsubscribe(t, &this.onpub)
-		this.sess.RemoveTopic(string(t))
+		p.topicsMgr.Unsubscribe(t, &p.onpub)
+		p.sess.RemoveTopic(string(t))
 	}
 
 	resp := message.NewUnsubackMessage()
 	resp.SetPacketId(msg.PacketId())
 
-	_, err := this.writeMessage(resp)
+	_, err := p.writeMessage(resp)
 	return err
 }
 
 // onPublish() is called when the server receives a PUBLISH message AND have completed
 // the ack cycle. This method will get the list of subscribers based on the publish
 // topic, and publishes the message to the list of subscribers.
-func (this *service) onPublish(msg *message.PublishMessage) error {
+func (p *service) onPublish(msg *message.PublishMessage) error {
 	if msg.Retain() {
-		if err := this.topicsMgr.Retain(msg); err != nil {
-			log.Warningf("(%s) Un-/Retaining of message failed: %v", this.cid(), err)
+		if err := p.topicsMgr.Retain(msg); err != nil {
+			log.Warningf("(%s) Un-/Retaining of message failed: %v", p.cid(), err)
 		}
 	}
 
-	err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &this.subs, &this.qoss)
+	err := p.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &p.subs, &p.qoss)
 	if err != nil {
-		log.Errorf("(%s) Error retrieving subscribers list: %v", this.cid(), err)
+		log.Errorf("(%s) Error retrieving subscribers list: %v", p.cid(), err)
 		return err
 	}
 
 	msg.SetRetain(false)
 
-	for i, s := range this.subs {
+	for i, s := range p.subs {
 		if s != nil {
 			fn := s.(*OnPublishFunc)
 			// use the possibly downgraded qos
-			msg.SetQoS(this.qoss[i])
+			msg.SetQoS(p.qoss[i])
 			if err := (*fn)(msg); err != nil {
 				log.Warningf("%v", err)
 			}

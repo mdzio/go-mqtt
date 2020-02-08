@@ -29,8 +29,10 @@ import (
 var log = logging.Get("mqtt")
 
 type (
+	// OnCompleteFunc is called, when a publish is completed.
 	OnCompleteFunc func(msg, ack message.Message, err error) error
-	OnPublishFunc  func(msg *message.PublishMessage) error
+	// OnPublishFunc is called, when a publish message is received.
+	OnPublishFunc func(msg *message.PublishMessage) error
 )
 
 type stat struct {
@@ -38,9 +40,9 @@ type stat struct {
 	msgs  int64
 }
 
-func (this *stat) increment(n int64) {
-	atomic.AddInt64(&this.bytes, n)
-	atomic.AddInt64(&this.msgs, 1)
+func (s *stat) increment(n int64) {
+	atomic.AddInt64(&s.bytes, n)
+	atomic.AddInt64(&s.msgs, 1)
 }
 
 var (
@@ -125,27 +127,27 @@ type service struct {
 	rmsgs []*message.PublishMessage
 }
 
-func (this *service) start() error {
+func (svc *service) start() error {
 	var err error
 
 	// Create the incoming ring buffer
-	this.in, err = newBuffer(defaultBufferSize)
+	svc.in, err = newBuffer(defaultBufferSize)
 	if err != nil {
 		return err
 	}
 
 	// Create the outgoing ring buffer
-	this.out, err = newBuffer(defaultBufferSize)
+	svc.out, err = newBuffer(defaultBufferSize)
 	if err != nil {
 		return err
 	}
 
 	// If this is a server
-	if !this.client {
+	if !svc.client {
 		// Creat the onPublishFunc so it can be used for published messages
-		this.onpub = func(msg *message.PublishMessage) error {
-			if err := this.publish(msg, nil); err != nil {
-				log.Errorf("(%s) Error publishing message: %v", this.cid(), err)
+		svc.onpub = func(msg *message.PublishMessage) error {
+			if err := svc.publish(msg, nil); err != nil {
+				log.Errorf("(%s) Error publishing message: %v", svc.cid(), err)
 				return err
 			}
 
@@ -153,114 +155,113 @@ func (this *service) start() error {
 		}
 
 		// If this is a recovered session, then add any topics it subscribed before
-		topics, qoss, err := this.sess.Topics()
+		topics, qoss, err := svc.sess.Topics()
 		if err != nil {
 			return err
-		} else {
-			for i, t := range topics {
-				this.topicsMgr.Subscribe([]byte(t), qoss[i], &this.onpub)
-			}
+		}
+		for i, t := range topics {
+			svc.topicsMgr.Subscribe([]byte(t), qoss[i], &svc.onpub)
 		}
 	}
 
 	// Processor is responsible for reading messages out of the buffer and processing
 	// them accordingly.
-	this.wgStarted.Add(1)
-	this.wgStopped.Add(1)
-	go this.processor()
+	svc.wgStarted.Add(1)
+	svc.wgStopped.Add(1)
+	go svc.processor()
 
 	// Receiver is responsible for reading from the connection and putting data into
 	// a buffer.
-	this.wgStarted.Add(1)
-	this.wgStopped.Add(1)
-	go this.receiver()
+	svc.wgStarted.Add(1)
+	svc.wgStopped.Add(1)
+	go svc.receiver()
 
 	// Sender is responsible for writing data in the buffer into the connection.
-	this.wgStarted.Add(1)
-	this.wgStopped.Add(1)
-	go this.sender()
+	svc.wgStarted.Add(1)
+	svc.wgStopped.Add(1)
+	go svc.sender()
 
 	// Wait for all the goroutines to start before returning
-	this.wgStarted.Wait()
+	svc.wgStarted.Wait()
 
 	return nil
 }
 
 // FIXME: The order of closing here causes panic sometimes. For example, if receiver
 // calls this, and closes the buffers, somehow it causes buffer.go:476 to panid.
-func (this *service) stop() {
+func (svc *service) stop() {
 	defer func() {
 		// Let's recover from panic
 		if r := recover(); r != nil {
-			log.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
+			log.Errorf("(%s) Recovering from panic: %v", svc.cid(), r)
 		}
 	}()
 
-	doit := atomic.CompareAndSwapInt64(&this.closed, 0, 1)
+	doit := atomic.CompareAndSwapInt64(&svc.closed, 0, 1)
 	if !doit {
 		return
 	}
 
 	// Close quit channel, effectively telling all the goroutines it's time to quit
-	if this.done != nil {
-		log.Tracef("(%s) Closing service.done", this.cid())
-		close(this.done)
+	if svc.done != nil {
+		log.Tracef("(%s) Closing service.done", svc.cid())
+		close(svc.done)
 	}
 
 	// Close the network connection
-	if this.conn != nil {
-		log.Tracef("(%s) Closing service.conn", this.cid())
-		this.conn.Close()
+	if svc.conn != nil {
+		log.Tracef("(%s) Closing service.conn", svc.cid())
+		svc.conn.Close()
 	}
 
-	this.in.Close()
-	this.out.Close()
+	svc.in.Close()
+	svc.out.Close()
 
 	// Wait for all the goroutines to stop.
-	this.wgStopped.Wait()
+	svc.wgStopped.Wait()
 
-	log.Debugf("(%s) Received %d bytes in %d messages", this.cid(), this.inStat.bytes, this.inStat.msgs)
-	log.Debugf("(%s) Sent %d bytes in %d messages", this.cid(), this.outStat.bytes, this.outStat.msgs)
+	log.Debugf("(%s) Received %d bytes in %d messages", svc.cid(), svc.inStat.bytes, svc.inStat.msgs)
+	log.Debugf("(%s) Sent %d bytes in %d messages", svc.cid(), svc.outStat.bytes, svc.outStat.msgs)
 
 	// Unsubscribe from all the topics for this client, only for the server side though
-	if !this.client && this.sess != nil {
-		topics, _, err := this.sess.Topics()
+	if !svc.client && svc.sess != nil {
+		topics, _, err := svc.sess.Topics()
 		if err != nil {
-			log.Errorf("(%s) Topics failed: %v", this.cid(), err)
+			log.Errorf("(%s) Topics failed: %v", svc.cid(), err)
 		} else {
 			for _, t := range topics {
-				if err := this.topicsMgr.Unsubscribe([]byte(t), &this.onpub); err != nil {
-					log.Errorf("(%s) Unsubscribing topic %q failed: %v", this.cid(), t, err)
+				if err := svc.topicsMgr.Unsubscribe([]byte(t), &svc.onpub); err != nil {
+					log.Errorf("(%s) Unsubscribing topic %q failed: %v", svc.cid(), t, err)
 				}
 			}
 		}
 	}
 
 	// Publish will message if WillFlag is set. Server side only.
-	if !this.client && this.sess.Cmsg.WillFlag() {
-		log.Warningf("(%s) Connection unexpectedly closed, sending Will message", this.cid())
-		this.onPublish(this.sess.Will)
+	if !svc.client && svc.sess.Cmsg.WillFlag() {
+		log.Warningf("(%s) Connection unexpectedly closed, sending Will message", svc.cid())
+		svc.onPublish(svc.sess.Will)
 	}
 
 	// Remove the client topics manager
-	if this.client {
-		topics.Unregister(this.sess.ID())
+	if svc.client {
+		topics.Unregister(svc.sess.ID())
 	}
 
 	// Remove the session from session store if it's suppose to be clean session
-	if this.sess.Cmsg.CleanSession() && this.sessMgr != nil {
-		this.sessMgr.Del(this.sess.ID())
+	if svc.sess.Cmsg.CleanSession() && svc.sessMgr != nil {
+		svc.sessMgr.Del(svc.sess.ID())
 	}
 
-	this.conn = nil
-	this.in = nil
-	this.out = nil
+	svc.conn = nil
+	svc.in = nil
+	svc.out = nil
 }
 
-func (this *service) publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
-	_, err := this.writeMessage(msg)
+func (svc *service) publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
+	_, err := svc.writeMessage(msg)
 	if err != nil {
-		return fmt.Errorf("(%s) Error sending %s message: %v", this.cid(), msg.Name(), err)
+		return fmt.Errorf("(%s) Error sending %s message: %v", svc.cid(), msg.Name(), err)
 	}
 
 	switch msg.QoS() {
@@ -272,23 +273,23 @@ func (this *service) publish(msg *message.PublishMessage, onComplete OnCompleteF
 		return nil
 
 	case message.QosAtLeastOnce:
-		return this.sess.Pub1ack.Wait(msg, onComplete)
+		return svc.sess.Pub1ack.Wait(msg, onComplete)
 
 	case message.QosExactlyOnce:
-		return this.sess.Pub2out.Wait(msg, onComplete)
+		return svc.sess.Pub2out.Wait(msg, onComplete)
 	}
 
 	return nil
 }
 
-func (this *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompleteFunc, onPublish OnPublishFunc) error {
+func (svc *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompleteFunc, onPublish OnPublishFunc) error {
 	if onPublish == nil {
-		return fmt.Errorf("onPublish function is nil. No need to subscribe.")
+		return fmt.Errorf("onPublish function is nil. No need to subscribe")
 	}
 
-	_, err := this.writeMessage(msg)
+	_, err := svc.writeMessage(msg)
 	if err != nil {
-		return fmt.Errorf("(%s) Error sending %s message: %v", this.cid(), msg.Name(), err)
+		return fmt.Errorf("(%s) Error sending %s message: %v", svc.cid(), msg.Name(), err)
 	}
 
 	var onc OnCompleteFunc = func(msg, ack message.Message, err error) error {
@@ -320,7 +321,7 @@ func (this *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompl
 
 		if sub.PacketId() != suback.PacketId() {
 			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Sub and Suback packet ID not the same. %d != %d.", sub.PacketId(), suback.PacketId()))
+				return onComplete(msg, ack, fmt.Errorf("Sub and Suback packet ID not the same. %d != %d", sub.PacketId(), suback.PacketId()))
 			}
 			return nil
 		}
@@ -330,7 +331,7 @@ func (this *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompl
 
 		if len(topics) != len(retcodes) {
 			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Incorrect number of return codes received. Expecting %d, got %d.", len(topics), len(retcodes)))
+				return onComplete(msg, ack, fmt.Errorf("Incorrect number of return codes received. Expecting %d, got %d", len(topics), len(retcodes)))
 			}
 			return nil
 		}
@@ -343,8 +344,8 @@ func (this *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompl
 			if c == message.QosFailure {
 				err2 = fmt.Errorf("Failed to subscribe to '%s'\n%v", string(t), err2)
 			} else {
-				this.sess.AddTopic(string(t), c)
-				_, err := this.topicsMgr.Subscribe(t, c, &onPublish)
+				svc.sess.AddTopic(string(t), c)
+				_, err := svc.topicsMgr.Subscribe(t, c, &onPublish)
 				if err != nil {
 					err2 = fmt.Errorf("Failed to subscribe to '%s' (%v)\n%v", string(t), err, err2)
 				}
@@ -358,13 +359,13 @@ func (this *service) subscribe(msg *message.SubscribeMessage, onComplete OnCompl
 		return err2
 	}
 
-	return this.sess.Suback.Wait(msg, onc)
+	return svc.sess.Suback.Wait(msg, onc)
 }
 
-func (this *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnCompleteFunc) error {
-	_, err := this.writeMessage(msg)
+func (svc *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnCompleteFunc) error {
+	_, err := svc.writeMessage(msg)
 	if err != nil {
-		return fmt.Errorf("(%s) Error sending %s message: %v", this.cid(), msg.Name(), err)
+		return fmt.Errorf("(%s) Error sending %s message: %v", svc.cid(), msg.Name(), err)
 	}
 
 	var onc OnCompleteFunc = func(msg, ack message.Message, err error) error {
@@ -395,7 +396,7 @@ func (this *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnC
 
 		if unsub.PacketId() != unsuback.PacketId() {
 			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Unsub and Unsuback packet ID not the same. %d != %d.", unsub.PacketId(), unsuback.PacketId()))
+				return onComplete(msg, ack, fmt.Errorf("Unsub and Unsuback packet ID not the same. %d != %d", unsub.PacketId(), unsuback.PacketId()))
 			}
 			return nil
 		}
@@ -405,12 +406,12 @@ func (this *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnC
 		for _, tb := range unsub.Topics() {
 			// Remove all subscribers, which basically it's just this client, since
 			// each client has it's own topic tree.
-			err := this.topicsMgr.Unsubscribe(tb, nil)
+			err := svc.topicsMgr.Unsubscribe(tb, nil)
 			if err != nil {
 				err2 = fmt.Errorf("%v\n%v", err2, err)
 			}
 
-			this.sess.RemoveTopic(string(tb))
+			svc.sess.RemoveTopic(string(tb))
 		}
 
 		if onComplete != nil {
@@ -420,23 +421,23 @@ func (this *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnC
 		return err2
 	}
 
-	return this.sess.Unsuback.Wait(msg, onc)
+	return svc.sess.Unsuback.Wait(msg, onc)
 }
 
-func (this *service) ping(onComplete OnCompleteFunc) error {
+func (svc *service) ping(onComplete OnCompleteFunc) error {
 	msg := message.NewPingreqMessage()
 
-	_, err := this.writeMessage(msg)
+	_, err := svc.writeMessage(msg)
 	if err != nil {
-		return fmt.Errorf("(%s) Error sending %s message: %v", this.cid(), msg.Name(), err)
+		return fmt.Errorf("(%s) Error sending %s message: %v", svc.cid(), msg.Name(), err)
 	}
 
-	return this.sess.Pingack.Wait(msg, onComplete)
+	return svc.sess.Pingack.Wait(msg, onComplete)
 }
 
-func (this *service) isDone() bool {
+func (svc *service) isDone() bool {
 	select {
-	case <-this.done:
+	case <-svc.done:
 		return true
 
 	default:
@@ -445,6 +446,6 @@ func (this *service) isDone() bool {
 	return false
 }
 
-func (this *service) cid() string {
-	return fmt.Sprintf("%d/%s", this.id, this.sess.ID())
+func (svc *service) cid() string {
+	return fmt.Sprintf("%d/%s", svc.id, svc.sess.ID())
 }
