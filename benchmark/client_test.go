@@ -15,30 +15,32 @@
 package benchmark
 
 import (
-	"flag"
 	"fmt"
+	"os"
 	"strconv"
 	"sync"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/mdzio/go-logging"
 	"github.com/mdzio/go-mqtt/message"
 	"github.com/mdzio/go-mqtt/service"
 )
 
 var (
 	messages    int    = 100000
-	publishers  int    = 1
-	subscribers int    = 1
-	size        int    = 1024
+	publishers  int    = 5
+	subscribers int    = 5
+	size        int    = 64
 	topic       []byte = []byte("test")
 	qos         byte   = 0
-	nap         int    = 10
+	nap         int    = 20
 	host        string = "127.0.0.1"
 	port        int    = 1883
-	user        string = "surgemq"
-	pass        string = "surgemq"
+	user        string = ""
+	pass        string = ""
 	version     int    = 4
+
+	log = logging.Get("test")
 
 	subdone, rcvdone, sentdone int64
 
@@ -55,16 +57,15 @@ var (
 )
 
 func init() {
-	flag.StringVar(&host, "host", host, "host to server")
-	flag.IntVar(&port, "port", port, "port to server")
-	flag.StringVar(&user, "user", user, "pass to server")
-	flag.StringVar(&pass, "pass", pass, "user to server")
-	flag.IntVar(&messages, "messages", messages, "number of messages to send")
-	flag.IntVar(&publishers, "publishers", publishers, "number of publishers to start (in FullMesh, only this is used)")
-	flag.IntVar(&subscribers, "subscribers", subscribers, "number of subscribers to start (in FullMesh, this is NOT used")
-	flag.IntVar(&size, "size", size, "size of message payload to send, minimum 10 bytes")
-	flag.IntVar(&version, "version", version, "mqtt version (4 is 3.1.1)")
-	flag.Parse()
+	e := os.Getenv("MQTT_BENCHMARK_HOST")
+	if e != "" {
+		host = e
+	}
+	var l logging.LogLevel
+	err := l.Set(os.Getenv("LOG_LEVEL"))
+	if err == nil {
+		logging.SetLevel(l)
+	}
 }
 
 func runClientTest(t testing.TB, cid int, wg *sync.WaitGroup, f func(*service.Client)) {
@@ -94,7 +95,9 @@ func connectToServer(t testing.TB, uri string, cid int) *service.Client {
 	msg := newConnectMessage(cid)
 
 	err := c.Connect(uri, msg)
-	require.NoError(t, err)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	return c
 }
