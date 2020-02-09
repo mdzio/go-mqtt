@@ -31,13 +31,15 @@ import (
 	"github.com/mdzio/go-mqtt/topics"
 )
 
+// List of errors.
 var (
 	ErrInvalidConnectionType  error = errors.New("service: Invalid connection type")
 	ErrInvalidSubscriber      error = errors.New("service: Invalid subscriber")
 	ErrBufferNotReady         error = errors.New("service: buffer is not ready")
-	ErrBufferInsufficientData error = errors.New("service: buffer has insufficient data.")
+	ErrBufferInsufficientData error = errors.New("service: buffer has insufficient data")
 )
 
+// Default server configuration.
 const (
 	DefaultKeepAlive        = 300
 	DefaultConnectTimeout   = 2
@@ -115,37 +117,37 @@ type Server struct {
 // or if there's some critical error that stops the server from running. The URI
 // supplied should be of the form "protocol://host:port" that can be parsed by
 // url.Parse(). For example, an URI could be "tcp://0.0.0.0:1883".
-func (this *Server) ListenAndServe(uri string) error {
-	defer atomic.CompareAndSwapInt32(&this.running, 1, 0)
+func (svr *Server) ListenAndServe(uri string) error {
+	defer atomic.CompareAndSwapInt32(&svr.running, 1, 0)
 
-	if !atomic.CompareAndSwapInt32(&this.running, 0, 1) {
+	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
 		return fmt.Errorf("server/ListenAndServe: Server is already running")
 	}
 
-	this.quit = make(chan struct{})
+	svr.quit = make(chan struct{})
 
 	u, err := url.Parse(uri)
 	if err != nil {
 		return err
 	}
 
-	this.ln, err = net.Listen(u.Scheme, u.Host)
+	svr.ln, err = net.Listen(u.Scheme, u.Host)
 	if err != nil {
 		return err
 	}
-	defer this.ln.Close()
+	defer svr.ln.Close()
 
 	log.Trace("Listening for MQTT connections")
 
 	var tempDelay time.Duration // how long to sleep on accept failure
 
 	for {
-		conn, err := this.ln.Accept()
+		conn, err := svr.ln.Accept()
 
 		if err != nil {
 			// http://zhen.org/blog/graceful-shutdown-of-go-net-dot-listeners/
 			select {
-			case <-this.quit:
+			case <-svr.quit:
 				return nil
 
 			default:
@@ -168,44 +170,47 @@ func (this *Server) ListenAndServe(uri string) error {
 			return err
 		}
 
-		go this.handleConnection(conn)
+		go svr.handleConnection(conn)
 	}
 }
 
-// FIXME: ListenAndServeTLS and ListenAndServe can not be used together. Field ln
-// is used by both.
-func (this *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
-	defer atomic.CompareAndSwapInt32(&this.running, 1, 0)
+// ListenAndServeTLS listents to connections on the URI requested, and handles
+// any incoming MQTT client sessions.
+//
+// FIXME: ListenAndServeTLS and ListenAndServe can not be used together. Field
+// ln is used by both.
+func (svr *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
+	defer atomic.CompareAndSwapInt32(&svr.running, 1, 0)
 
-	if !atomic.CompareAndSwapInt32(&this.running, 0, 1) {
+	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
 		return fmt.Errorf("server/ListenAndServe: Server is already running")
 	}
 
-	this.quit = make(chan struct{})
+	svr.quit = make(chan struct{})
 
 	u, err := url.Parse(uri)
 	if err != nil {
 		return err
 	}
 
-	this.ln, err = tls.Listen(u.Scheme, u.Host, cfg)
+	svr.ln, err = tls.Listen(u.Scheme, u.Host, cfg)
 	if err != nil {
 		fmt.Println(err)
 		return err
 	}
-	defer this.ln.Close()
+	defer svr.ln.Close()
 
 	log.Trace("Listening for Secure MQTT connections")
 
 	var tempDelay time.Duration // how long to sleep on accept failure
 
 	for {
-		conn, err := this.ln.Accept()
+		conn, err := svr.ln.Accept()
 
 		if err != nil {
 			// http://zhen.org/blog/graceful-shutdown-of-go-net-dot-listeners/
 			select {
-			case <-this.quit:
+			case <-svr.quit:
 				return nil
 
 			default:
@@ -228,23 +233,18 @@ func (this *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
 			return err
 		}
 
-		go this.handleConnection(conn)
+		go svr.handleConnection(conn)
 	}
 }
 
-// Publish sends a single MQTT PUBLISH message to the server.
-//
-// On completion, the supplied OnCompleteFunc is called. For QOS 0 messages,
-// onComplete is called immediately after the message is sent to the outgoing
-// buffer. For QOS 1 messages, onComplete is called when PUBACK is received. For
-// QOS 2 messages, onComplete is called after the PUBCOMP message is received.
-func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
-	if err := this.checkConfiguration(); err != nil {
+// Publish sends a single MQTT PUBLISH message to the server. msg is modified.
+func (svr *Server) Publish(msg *message.PublishMessage) error {
+	if err := svr.checkConfiguration(); err != nil {
 		return err
 	}
 
 	if msg.Retain() {
-		if err := this.topicsMgr.Retain(msg); err != nil {
+		if err := svr.topicsMgr.Retain(msg); err != nil {
 			log.Warningf("Un-/Retaining of message failed: %v", err)
 		}
 	}
@@ -252,7 +252,7 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 	var subs []interface{}
 	var qoss []byte
 
-	if err := this.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &subs, &qoss); err != nil {
+	if err := svr.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &subs, &qoss); err != nil {
 		return err
 	}
 
@@ -273,24 +273,24 @@ func (this *Server) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 }
 
 // Subscribe registers a callback for a topic.
-func (s *Server) Subscribe(topic string, qos byte, onPublish *OnPublishFunc) error {
+func (svr *Server) Subscribe(topic string, qos byte, onPublish *OnPublishFunc) error {
 	log.Debugf("Subscribing topic %q with QoS %v for callback %p", topic, qos, onPublish)
-	if err := s.checkConfiguration(); err != nil {
+	if err := svr.checkConfiguration(); err != nil {
 		return err
 	}
-	if _, err := s.topicsMgr.Subscribe([]byte(topic), qos, onPublish); err != nil {
+	if _, err := svr.topicsMgr.Subscribe([]byte(topic), qos, onPublish); err != nil {
 		return err
 	}
 	return nil
 }
 
 // Unsubscribe deregisters a callback for a topic.
-func (s *Server) Unsubscribe(topic string, onPublish *OnPublishFunc) error {
+func (svr *Server) Unsubscribe(topic string, onPublish *OnPublishFunc) error {
 	log.Debugf("Unsubscribing topic %q for callback %p", topic, onPublish)
-	if err := s.checkConfiguration(); err != nil {
+	if err := svr.checkConfiguration(); err != nil {
 		return err
 	}
-	if err := s.topicsMgr.Unsubscribe([]byte(topic), onPublish); err != nil {
+	if err := svr.topicsMgr.Unsubscribe([]byte(topic), onPublish); err != nil {
 		return err
 	}
 	return nil
@@ -298,35 +298,35 @@ func (s *Server) Unsubscribe(topic string, onPublish *OnPublishFunc) error {
 
 // Close terminates the server by shutting down all the client connections and closing
 // the listener. It will, as best it can, clean up after itself.
-func (this *Server) Close() error {
+func (svr *Server) Close() error {
 	// By closing the quit channel, we are telling the server to stop accepting new
 	// connection.
-	close(this.quit)
+	close(svr.quit)
 
 	// We then close the net.Listener, which will force Accept() to return if it's
 	// blocked waiting for new connections.
-	if this.ln != nil {
-		this.ln.Close()
+	if svr.ln != nil {
+		svr.ln.Close()
 	}
 
-	for _, svc := range this.svcs {
+	for _, svc := range svr.svcs {
 		log.Tracef("Stopping service: %d", svc.id)
 		svc.stop()
 	}
 
-	if this.sessMgr != nil {
-		this.sessMgr.Close()
+	if svr.sessMgr != nil {
+		svr.sessMgr.Close()
 	}
 
-	if this.topicsMgr != nil {
-		this.topicsMgr.Close()
+	if svr.topicsMgr != nil {
+		svr.topicsMgr.Close()
 	}
 
 	return nil
 }
 
 // HandleConnection is for the broker to handle an incoming connection from a client
-func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
+func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	if c == nil {
 		return nil, ErrInvalidConnectionType
 	}
@@ -337,7 +337,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		}
 	}()
 
-	err = this.checkConfiguration()
+	err = svr.checkConfiguration()
 	if err != nil {
 		return nil, err
 	}
@@ -360,7 +360,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	// a CONNACK error. If it's CONNACK error, send the proper CONNACK error back
 	// to client. Exit regardless of error type.
 
-	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(this.ConnectTimeout)))
+	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(svr.ConnectTimeout)))
 
 	resp := message.NewConnackMessage()
 
@@ -375,7 +375,7 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	}
 
 	// Authenticate the user, if error, return error and exit
-	if err = this.authMgr.Authenticate(string(req.Username()), string(req.Password())); err != nil {
+	if err = svr.authMgr.Authenticate(string(req.Username()), string(req.Password())); err != nil {
 		resp.SetReturnCode(message.ErrBadUsernameOrPassword)
 		resp.SetSessionPresent(false)
 		writeMessage(conn, resp)
@@ -391,16 +391,16 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		client: false,
 
 		keepAlive:      int(req.KeepAlive()),
-		connectTimeout: this.ConnectTimeout,
-		ackTimeout:     this.AckTimeout,
-		timeoutRetries: this.TimeoutRetries,
+		connectTimeout: svr.ConnectTimeout,
+		ackTimeout:     svr.AckTimeout,
+		timeoutRetries: svr.TimeoutRetries,
 
 		conn:      conn,
-		sessMgr:   this.sessMgr,
-		topicsMgr: this.topicsMgr,
+		sessMgr:   svr.sessMgr,
+		topicsMgr: svr.topicsMgr,
 	}
 
-	err = this.getSession(svc, req, resp)
+	err = svr.getSession(svc, req, resp)
 	if err != nil {
 		return nil, err
 	}
@@ -419,58 +419,58 @@ func (this *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		return nil, err
 	}
 
-	this.mu.Lock()
-	this.svcs = append(this.svcs, svc)
-	this.mu.Unlock()
+	svr.mu.Lock()
+	svr.svcs = append(svr.svcs, svc)
+	svr.mu.Unlock()
 
 	log.Debugf("(%s) Connection established", svc.cid())
 
 	return svc, nil
 }
 
-func (this *Server) checkConfiguration() error {
+func (svr *Server) checkConfiguration() error {
 	var err error
 
-	this.configOnce.Do(func() {
-		if this.KeepAlive == 0 {
-			this.KeepAlive = DefaultKeepAlive
+	svr.configOnce.Do(func() {
+		if svr.KeepAlive == 0 {
+			svr.KeepAlive = DefaultKeepAlive
 		}
 
-		if this.ConnectTimeout == 0 {
-			this.ConnectTimeout = DefaultConnectTimeout
+		if svr.ConnectTimeout == 0 {
+			svr.ConnectTimeout = DefaultConnectTimeout
 		}
 
-		if this.AckTimeout == 0 {
-			this.AckTimeout = DefaultAckTimeout
+		if svr.AckTimeout == 0 {
+			svr.AckTimeout = DefaultAckTimeout
 		}
 
-		if this.TimeoutRetries == 0 {
-			this.TimeoutRetries = DefaultTimeoutRetries
+		if svr.TimeoutRetries == 0 {
+			svr.TimeoutRetries = DefaultTimeoutRetries
 		}
 
-		if this.Authenticator == "" {
-			this.Authenticator = "mockSuccess"
+		if svr.Authenticator == "" {
+			svr.Authenticator = "mockSuccess"
 		}
 
-		this.authMgr, err = auth.NewManager(this.Authenticator)
+		svr.authMgr, err = auth.NewManager(svr.Authenticator)
 		if err != nil {
 			return
 		}
 
-		if this.SessionsProvider == "" {
-			this.SessionsProvider = "mem"
+		if svr.SessionsProvider == "" {
+			svr.SessionsProvider = "mem"
 		}
 
-		this.sessMgr, err = sessions.NewManager(this.SessionsProvider)
+		svr.sessMgr, err = sessions.NewManager(svr.SessionsProvider)
 		if err != nil {
 			return
 		}
 
-		if this.TopicsProvider == "" {
-			this.TopicsProvider = "mem"
+		if svr.TopicsProvider == "" {
+			svr.TopicsProvider = "mem"
 		}
 
-		this.topicsMgr, err = topics.NewManager(this.TopicsProvider)
+		svr.topicsMgr, err = topics.NewManager(svr.TopicsProvider)
 
 		return
 	})
@@ -478,7 +478,7 @@ func (this *Server) checkConfiguration() error {
 	return err
 }
 
-func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *message.ConnackMessage) error {
+func (svr *Server) getSession(svc *service, req *message.ConnectMessage, resp *message.ConnackMessage) error {
 	// If CleanSession is set to 0, the server MUST resume communications with the
 	// client based on state from the current session, as identified by the client
 	// identifier. If there is no session associated with the client identifier the
@@ -503,7 +503,7 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 	// If CleanSession is NOT set, check the session store for existing session.
 	// If found, return it.
 	if !req.CleanSession() {
-		if svc.sess, err = this.sessMgr.Get(cid); err == nil {
+		if svc.sess, err = svr.sessMgr.Get(cid); err == nil {
 			resp.SetSessionPresent(true)
 
 			if err := svc.sess.Update(req); err != nil {
@@ -514,7 +514,7 @@ func (this *Server) getSession(svc *service, req *message.ConnectMessage, resp *
 
 	// If CleanSession, or no existing session found, then create a new one
 	if svc.sess == nil {
-		if svc.sess, err = this.sessMgr.New(cid); err != nil {
+		if svc.sess, err = svr.sessMgr.New(cid); err != nil {
 			return err
 		}
 
