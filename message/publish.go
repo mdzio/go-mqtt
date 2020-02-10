@@ -91,9 +91,14 @@ func (m *PublishMessage) SetQoS(v byte) error {
 	if v != 0x0 && v != 0x1 && v != 0x2 {
 		return fmt.Errorf("publish/SetQoS: Invalid QoS %d", v)
 	}
-
+	p := m.QoS()
 	m.mtypeflags[0] = (m.mtypeflags[0] & 249) | (v << 1) // 249 = 11111001
 
+	// QoS can change length of message (QoS 0: without packet ID, Qos 1 and 2:
+	// with packet ID)
+	if (p > 0) != (v > 0) {
+		m.dirty = true
+	}
 	return nil
 }
 

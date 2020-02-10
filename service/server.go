@@ -96,7 +96,8 @@ type Server struct {
 	// is closed, then it's a signal for it to shutdown as well.
 	quit chan struct{}
 
-	ln net.Listener
+	ln    net.Listener
+	lntls net.Listener
 
 	// A list of services created by the server. We keep track of them so we can
 	// gracefully shut them down if they are still alive when the server goes down.
@@ -104,9 +105,6 @@ type Server struct {
 
 	// Mutex for updating svcs
 	mu sync.Mutex
-
-	// A indicator on whether this server is running
-	running int32
 
 	// A indicator on whether this server has already checked configuration
 	configOnce sync.Once
@@ -118,13 +116,9 @@ type Server struct {
 // supplied should be of the form "protocol://host:port" that can be parsed by
 // url.Parse(). For example, an URI could be "tcp://0.0.0.0:1883".
 func (svr *Server) ListenAndServe(uri string) error {
-	defer atomic.CompareAndSwapInt32(&svr.running, 1, 0)
-
-	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
-		return fmt.Errorf("server/ListenAndServe: Server is already running")
+	if err := svr.checkConfiguration(); err != nil {
+		return err
 	}
-
-	svr.quit = make(chan struct{})
 
 	u, err := url.Parse(uri)
 	if err != nil {
@@ -175,37 +169,32 @@ func (svr *Server) ListenAndServe(uri string) error {
 }
 
 // ListenAndServeTLS listents to connections on the URI requested, and handles
-// any incoming MQTT client sessions.
-//
-// FIXME: ListenAndServeTLS and ListenAndServe can not be used together. Field
-// ln is used by both.
+// any incoming MQTT client sessions.  It should not return until Close() is
+// called or if there's some critical error that stops the server from running.
+// The URI supplied should be of the form "protocol://host:port" that can be
+// parsed by url.Parse(). For example, an URI could be "tcp://0.0.0.0:8883".
 func (svr *Server) ListenAndServeTLS(uri string, cfg *tls.Config) error {
-	defer atomic.CompareAndSwapInt32(&svr.running, 1, 0)
-
-	if !atomic.CompareAndSwapInt32(&svr.running, 0, 1) {
-		return fmt.Errorf("server/ListenAndServe: Server is already running")
+	if err := svr.checkConfiguration(); err != nil {
+		return err
 	}
-
-	svr.quit = make(chan struct{})
 
 	u, err := url.Parse(uri)
 	if err != nil {
 		return err
 	}
 
-	svr.ln, err = tls.Listen(u.Scheme, u.Host, cfg)
+	svr.lntls, err = tls.Listen(u.Scheme, u.Host, cfg)
 	if err != nil {
-		fmt.Println(err)
 		return err
 	}
-	defer svr.ln.Close()
+	defer svr.lntls.Close()
 
 	log.Trace("Listening for Secure MQTT connections")
 
 	var tempDelay time.Duration // how long to sleep on accept failure
 
 	for {
-		conn, err := svr.ln.Accept()
+		conn, err := svr.lntls.Accept()
 
 		if err != nil {
 			// http://zhen.org/blog/graceful-shutdown-of-go-net-dot-listeners/
@@ -308,6 +297,9 @@ func (svr *Server) Close() error {
 	if svr.ln != nil {
 		svr.ln.Close()
 	}
+	if svr.lntls != nil {
+		svr.lntls.Close()
+	}
 
 	for _, svc := range svr.svcs {
 		log.Tracef("Stopping service: %d", svc.id)
@@ -336,11 +328,6 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 			c.Close()
 		}
 	}()
-
-	err = svr.checkConfiguration()
-	if err != nil {
-		return nil, err
-	}
 
 	conn, ok := c.(net.Conn)
 	if !ok {
@@ -451,7 +438,6 @@ func (svr *Server) checkConfiguration() error {
 		if svr.Authenticator == "" {
 			svr.Authenticator = "mockSuccess"
 		}
-
 		svr.authMgr, err = auth.NewManager(svr.Authenticator)
 		if err != nil {
 			return
@@ -460,7 +446,6 @@ func (svr *Server) checkConfiguration() error {
 		if svr.SessionsProvider == "" {
 			svr.SessionsProvider = "mem"
 		}
-
 		svr.sessMgr, err = sessions.NewManager(svr.SessionsProvider)
 		if err != nil {
 			return
@@ -469,9 +454,9 @@ func (svr *Server) checkConfiguration() error {
 		if svr.TopicsProvider == "" {
 			svr.TopicsProvider = "mem"
 		}
-
 		svr.topicsMgr, err = topics.NewManager(svr.TopicsProvider)
 
+		svr.quit = make(chan struct{})
 		return
 	})
 
