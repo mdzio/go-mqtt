@@ -334,6 +334,8 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		return nil, ErrInvalidConnectionType
 	}
 
+	log.Tracef("Client %s is connecting", conn.RemoteAddr())
+
 	// To establish a connection, we must
 	// 1. Read and decode the message.ConnectMessage from the wire
 	// 2. If no decoding errors, then authenticate using username and password.
@@ -353,6 +355,7 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 
 	req, err := getConnectMessage(conn)
 	if err != nil {
+		log.Debugf("Decoding of connect message failed: %v", err)
 		if cerr, ok := err.(message.ConnackCode); ok {
 			resp.SetReturnCode(cerr)
 			resp.SetSessionPresent(false)
@@ -362,7 +365,10 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 	}
 
 	// Authenticate the user, if error, return error and exit
-	if err = svr.authMgr.Authenticate(string(req.Username()), string(req.Password())); err != nil {
+	user := string(req.Username())
+	log.Tracef("Authenticating user: %s", user)
+	if err = svr.authMgr.Authenticate(user, string(req.Password())); err != nil {
+		log.Debugf("Authentication of user %s failed: %v", user, err)
 		resp.SetReturnCode(message.ErrBadUsernameOrPassword)
 		resp.SetSessionPresent(false)
 		writeMessage(conn, resp)

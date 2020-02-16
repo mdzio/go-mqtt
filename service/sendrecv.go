@@ -50,11 +50,7 @@ func (this *service) receiver() {
 		}
 
 		this.wgStopped.Done()
-
-		log.Tracef("(%s) Receiver stopped", this.cid())
 	}()
-
-	log.Tracef("(%s) Starting receiver", this.cid())
 
 	this.wgStarted.Done()
 
@@ -95,11 +91,7 @@ func (this *service) sender() {
 		}
 
 		this.wgStopped.Done()
-
-		log.Tracef("(%s) Sender stopped", this.cid())
 	}()
-
-	log.Tracef("(%s) Starting sender", this.cid())
 
 	this.wgStarted.Done()
 

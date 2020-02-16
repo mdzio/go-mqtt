@@ -37,11 +37,7 @@ func (p *service) processor() {
 
 		p.wgStopped.Done()
 		p.stop()
-
-		log.Tracef("(%s) Processor stopped", p.cid())
 	}()
-
-	log.Tracef("(%s) Starting processor", p.cid())
 
 	p.wgStarted.Done()
 
