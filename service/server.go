@@ -355,7 +355,7 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 
 	req, err := getConnectMessage(conn)
 	if err != nil {
-		log.Debugf("Decoding of connect message failed: %v", err)
+		log.Warningf("Decoding of connect message failed: %v", err)
 		if cerr, ok := err.(message.ConnackCode); ok {
 			resp.SetReturnCode(cerr)
 			resp.SetSessionPresent(false)
@@ -366,13 +366,18 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 
 	// Authenticate the user, if error, return error and exit
 	user := string(req.Username())
-	log.Tracef("Authenticating user: %s", user)
+	log.Tracef("(%s) Authenticating user: %s", req.ClientId(), user)
 	if err = svr.authMgr.Authenticate(user, string(req.Password())); err != nil {
-		log.Debugf("Authentication of user %s failed: %v", user, err)
+		log.Warningf("(%s) Authentication of user %s failed: %v", req.ClientId(), user, err)
 		resp.SetReturnCode(message.ErrBadUsernameOrPassword)
 		resp.SetSessionPresent(false)
 		writeMessage(conn, resp)
 		return nil, err
+	}
+
+	// protocol version > V3.1.1 ?
+	if req.Version() > 0x04 {
+		log.Warningf("(%s) Protocol version of client is not fully supported: %d", req.ClientId(), req.Version())
 	}
 
 	if req.KeepAlive() == 0 {

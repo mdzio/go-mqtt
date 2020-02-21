@@ -210,7 +210,7 @@ func (svc *service) stop() {
 
 	// Close the network connection
 	if svc.conn != nil {
-		log.Tracef("(%s) Closing service.conn", svc.cid())
+		log.Tracef("(%s) Closing connection", svc.cid())
 		svc.conn.Close()
 	}
 
