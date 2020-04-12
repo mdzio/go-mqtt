@@ -26,8 +26,8 @@ import (
 // bytes in length, and that contain only the characters:
 // "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 //
-// The ServerMAY allowClientId’s that contain more than 23 encoded bytes. The
-// ServerMAY allow ClientId’s that contain characters not included in the list
+// The Server MAY allowClientId’s that contain more than 23 encoded bytes. The
+// Server MAY allow ClientId’s that contain characters not included in the list
 // given above.
 
 // regular expression for the client identifier
@@ -36,10 +36,9 @@ var clientIDRegexp *regexp.Regexp
 func init() {
 	// regular expression for the client identifier
 	//
-	// (added space for Paho compliance test, added underscore (_) for MQTT C
-	// client test, added hyphen (-) for mosquitto_sub, maximum length raised to
-	// 32 for MQTT.fx)
-	clientIDRegexp = regexp.MustCompile("^[0-9a-zA-Z _-]{0,32}$")
+	// (Accept all printable ASCII characters and a maximum length of 32 bytes
+	// for better compatibility with various clients.)
+	clientIDRegexp = regexp.MustCompile("^[[:print:]]{0,32}$")
 }
 
 // After a Network Connection is established by a Client to a Server, the first Packet
@@ -541,9 +540,6 @@ func (this *ConnectMessage) decodeMessage(src []byte) (int, error) {
 		return total, ErrIdentifierRejected
 	}
 
-	// The ClientId must contain only characters 0-9, a-z, and A-Z
-	// We also support ClientId longer than 23 encoded bytes
-	// We do not support ClientId outside of the above characters
 	if len(this.clientId) > 0 && !this.validClientId(this.clientId) {
 		return total, ErrIdentifierRejected
 	}
