@@ -375,11 +375,6 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		return nil, err
 	}
 
-	// protocol version > V3.1.1 ?
-	if req.Version() > 0x04 {
-		log.Warningf("(%s) Protocol version of client is not fully supported: %d", req.ClientId(), req.Version())
-	}
-
 	if req.KeepAlive() == 0 {
 		req.SetKeepAlive(minKeepAlive)
 	}
