@@ -16,7 +16,7 @@ package message
 
 import "fmt"
 
-// A PUBACK Packet is the response to a PUBLISH Packet with QoS level 1.
+// PubackMessage is a PUBACK packet, the response to a PUBLISH Packet with QoS level 1.
 type PubackMessage struct {
 	header
 }
@@ -31,71 +31,75 @@ func NewPubackMessage() *PubackMessage {
 	return msg
 }
 
-func (this PubackMessage) String() string {
-	return fmt.Sprintf("%s, Packet ID=%d", this.header, this.packetId)
+// String implements Stringer interface.
+func (m PubackMessage) String() string {
+	return fmt.Sprintf("%s, Packet ID=%d", m.header, m.packetID)
 }
 
-func (this *PubackMessage) Len() int {
-	if !this.dirty {
-		return len(this.dbuf)
+// Len returns the message length.
+func (m *PubackMessage) Len() int {
+	if !m.dirty {
+		return len(m.dbuf)
 	}
 
-	ml := this.msglen()
+	ml := m.msglen()
 
-	if err := this.SetRemainingLength(int32(ml)); err != nil {
+	if err := m.SetRemainingLength(int32(ml)); err != nil {
 		return 0
 	}
 
-	return this.header.msglen() + ml
+	return m.header.msglen() + ml
 }
 
-func (this *PubackMessage) Decode(src []byte) (int, error) {
+// Decode decodes the message.
+func (m *PubackMessage) Decode(src []byte) (int, error) {
 	total := 0
 
-	n, err := this.header.decode(src[total:])
+	n, err := m.header.decode(src[total:])
 	total += n
 	if err != nil {
 		return total, err
 	}
 
 	//this.packetId = binary.BigEndian.Uint16(src[total:])
-	this.packetId = src[total : total+2]
+	m.packetID = src[total : total+2]
 	total += 2
 
-	this.dirty = false
+	m.dirty = false
 
 	return total, nil
 }
 
-func (this *PubackMessage) Encode(dst []byte) (int, error) {
-	if !this.dirty {
-		if len(dst) < len(this.dbuf) {
-			return 0, fmt.Errorf("puback/Encode: Insufficient buffer size. Expecting %d, got %d.", len(this.dbuf), len(dst))
+// Encode encodes the message.
+func (m *PubackMessage) Encode(dst []byte) (int, error) {
+	if !m.dirty {
+		if len(dst) < len(m.dbuf) {
+			return 0, fmt.Errorf("puback/Encode: Insufficient buffer size. Expecting %d, got %d", len(m.dbuf), len(dst))
 		}
 
-		return copy(dst, this.dbuf), nil
+		return copy(dst, m.dbuf), nil
 	}
 
-	hl := this.header.msglen()
-	ml := this.msglen()
+	hl := m.header.msglen()
+	ml := m.msglen()
 
 	if len(dst) < hl+ml {
-		return 0, fmt.Errorf("puback/Encode: Insufficient buffer size. Expecting %d, got %d.", hl+ml, len(dst))
+		return 0, fmt.Errorf("puback/Encode: Insufficient buffer size. Expecting %d, got %d", hl+ml, len(dst))
 	}
 
-	if err := this.SetRemainingLength(int32(ml)); err != nil {
+	if err := m.SetRemainingLength(int32(ml)); err != nil {
 		return 0, err
 	}
 
 	total := 0
 
-	n, err := this.header.encode(dst[total:])
+	n, err := m.header.encode(dst[total:])
 	total += n
 	if err != nil {
 		return total, err
 	}
 
-	if copy(dst[total:total+2], this.packetId) != 2 {
+	if copy(dst[total:total+2], m.packetID) != 2 {
 		dst[total], dst[total+1] = 0, 0
 	}
 	total += 2
@@ -103,7 +107,7 @@ func (this *PubackMessage) Encode(dst []byte) (int, error) {
 	return total, nil
 }
 
-func (this *PubackMessage) msglen() int {
+func (m *PubackMessage) msglen() int {
 	// packet ID
 	return 2
 }

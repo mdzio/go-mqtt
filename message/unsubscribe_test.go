@@ -23,8 +23,8 @@ import (
 func TestUnsubscribeMessageFields(t *testing.T) {
 	msg := NewUnsubscribeMessage()
 
-	msg.SetPacketId(100)
-	require.Equal(t, 100, int(msg.PacketId()), "Error setting packet ID.")
+	msg.SetPacketID(100)
+	require.Equal(t, 100, int(msg.PacketID()), "Error setting packet ID.")
 
 	msg.AddTopic([]byte("/a/b/#/c"))
 	require.Equal(t, 1, len(msg.Topics()), "Error adding topic.")
@@ -103,7 +103,7 @@ func TestUnsubscribeMessageEncode(t *testing.T) {
 	}
 
 	msg := NewUnsubscribeMessage()
-	msg.SetPacketId(7)
+	msg.SetPacketID(7)
 	msg.AddTopic([]byte("surgemq"))
 	msg.AddTopic([]byte("/a/b/#/c"))
 	msg.AddTopic([]byte("/a/b/#/cdd"))

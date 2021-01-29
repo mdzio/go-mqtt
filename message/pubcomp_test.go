@@ -23,9 +23,9 @@ import (
 func TestPubcompMessageFields(t *testing.T) {
 	msg := NewPubcompMessage()
 
-	msg.SetPacketId(100)
+	msg.SetPacketID(100)
 
-	require.Equal(t, 100, int(msg.PacketId()))
+	require.Equal(t, 100, int(msg.PacketID()))
 }
 
 func TestPubcompMessageDecode(t *testing.T) {
@@ -42,7 +42,7 @@ func TestPubcompMessageDecode(t *testing.T) {
 	require.NoError(t, err, "Error decoding message.")
 	require.Equal(t, len(msgBytes), n, "Error decoding message.")
 	require.Equal(t, PUBCOMP, msg.Type(), "Error decoding message.")
-	require.Equal(t, 7, int(msg.PacketId()), "Error decoding message.")
+	require.Equal(t, 7, int(msg.PacketID()), "Error decoding message.")
 }
 
 // test insufficient bytes
@@ -68,7 +68,7 @@ func TestPubcompMessageEncode(t *testing.T) {
 	}
 
 	msg := NewPubcompMessage()
-	msg.SetPacketId(7)
+	msg.SetPacketID(7)
 
 	dst := make([]byte, 10)
 	n, err := msg.Encode(dst)

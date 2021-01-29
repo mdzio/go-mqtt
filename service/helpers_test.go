@@ -24,15 +24,14 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/stretchr/testify/require"
-	"github.com/mdzio/go-mqtt/glog"
 	"github.com/mdzio/go-mqtt/message"
 	"github.com/mdzio/go-mqtt/sessions"
 	"github.com/mdzio/go-mqtt/topics"
+	"github.com/stretchr/testify/require"
 )
 
 var (
-	gTestClientId uint64 = 0
+	gTestClientID uint64 = 0
 )
 
 func runClientServerTests(t testing.TB, f func(*Client)) {
@@ -98,15 +97,14 @@ func startServiceN(t testing.TB, u *url.URL, wg *sync.WaitGroup, ready1, ready2 
 		if authenticator == "mockFailure" {
 			require.Error(t, err)
 			return
-		} else {
-			require.NoError(t, err)
 		}
+		require.NoError(t, err)
 	}
 
 	<-ready2
 
 	for _, svc := range svr.svcs {
-		glog.Infof("Stopping service %d", svc.id)
+		log.Infof("Stopping service %d", svc.id)
 		svc.stop()
 	}
 
@@ -125,23 +123,22 @@ func connectToServer(t testing.TB, uri string) *Client {
 	if authenticator == "mockFailure" {
 		require.Error(t, err)
 		return nil
-	} else {
-		require.NoError(t, err)
 	}
+	require.NoError(t, err)
 
 	return c
 }
 
 func newPubrelMessage(pktid uint16) *message.PubrelMessage {
 	msg := message.NewPubrelMessage()
-	msg.SetPacketId(pktid)
+	msg.SetPacketID(pktid)
 
 	return msg
 }
 
 func newPublishMessage(pktid uint16, qos byte) *message.PublishMessage {
 	msg := message.NewPublishMessage()
-	msg.SetPacketId(pktid)
+	msg.SetPacketID(pktid)
 	msg.SetTopic([]byte("abc"))
 	msg.SetPayload([]byte("abc"))
 	msg.SetQoS(qos)
@@ -151,7 +148,7 @@ func newPublishMessage(pktid uint16, qos byte) *message.PublishMessage {
 
 func newPublishMessageLarge(pktid uint16, qos byte) *message.PublishMessage {
 	msg := message.NewPublishMessage()
-	msg.SetPacketId(pktid)
+	msg.SetPacketID(pktid)
 	msg.SetTopic([]byte("abc"))
 	msg.SetPayload(make([]byte, 1024))
 	msg.SetQoS(qos)
@@ -178,7 +175,7 @@ func newConnectMessage() *message.ConnectMessage {
 	msg.SetWillQos(1)
 	msg.SetVersion(4)
 	msg.SetCleanSession(true)
-	msg.SetClientId([]byte(fmt.Sprintf("surgemq%d", atomic.AddUint64(&gTestClientId, 1))))
+	msg.SetClientID([]byte(fmt.Sprintf("surgemq%d", atomic.AddUint64(&gTestClientID, 1))))
 	msg.SetKeepAlive(10)
 	msg.SetWillTopic([]byte("will"))
 	msg.SetWillMessage([]byte("send me home"))

@@ -23,9 +23,9 @@ import (
 func TestUnsubackMessageFields(t *testing.T) {
 	msg := NewUnsubackMessage()
 
-	msg.SetPacketId(100)
+	msg.SetPacketID(100)
 
-	require.Equal(t, 100, int(msg.PacketId()))
+	require.Equal(t, 100, int(msg.PacketID()))
 }
 
 func TestUnsubackMessageDecode(t *testing.T) {
@@ -42,7 +42,7 @@ func TestUnsubackMessageDecode(t *testing.T) {
 	require.NoError(t, err, "Error decoding message.")
 	require.Equal(t, len(msgBytes), n, "Error decoding message.")
 	require.Equal(t, UNSUBACK, msg.Type(), "Error decoding message.")
-	require.Equal(t, 7, int(msg.PacketId()), "Error decoding message.")
+	require.Equal(t, 7, int(msg.PacketID()), "Error decoding message.")
 }
 
 // test insufficient bytes
@@ -68,7 +68,7 @@ func TestUnsubackMessageEncode(t *testing.T) {
 	}
 
 	msg := NewUnsubackMessage()
-	msg.SetPacketId(7)
+	msg.SetPacketID(7)
 
 	dst := make([]byte, 10)
 	n, err := msg.Encode(dst)

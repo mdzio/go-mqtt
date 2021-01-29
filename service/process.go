@@ -112,7 +112,7 @@ func (p *service) processIncoming(msg message.Message) error {
 		}
 
 		resp := message.NewPubrelMessage()
-		resp.SetPacketId(msg.PacketId())
+		resp.SetPacketID(msg.PacketID())
 		_, err = p.writeMessage(resp)
 
 	case *message.PubrelMessage:
@@ -124,7 +124,7 @@ func (p *service) processIncoming(msg message.Message) error {
 		p.processAcked(p.sess.Pub2in)
 
 		resp := message.NewPubcompMessage()
-		resp.SetPacketId(msg.PacketId())
+		resp.SetPacketID(msg.PacketID())
 		_, err = p.writeMessage(resp)
 
 	case *message.PubcompMessage:
@@ -265,14 +265,14 @@ func (p *service) processPublish(msg *message.PublishMessage) error {
 		p.sess.Pub2in.Wait(msg, nil)
 
 		resp := message.NewPubrecMessage()
-		resp.SetPacketId(msg.PacketId())
+		resp.SetPacketID(msg.PacketID())
 
 		_, err := p.writeMessage(resp)
 		return err
 
 	case message.QosAtLeastOnce:
 		resp := message.NewPubackMessage()
-		resp.SetPacketId(msg.PacketId())
+		resp.SetPacketID(msg.PacketID())
 
 		if _, err := p.writeMessage(resp); err != nil {
 			return err
@@ -290,7 +290,7 @@ func (p *service) processPublish(msg *message.PublishMessage) error {
 // For SUBSCRIBE message, we should add subscriber, then send back SUBACK
 func (p *service) processSubscribe(msg *message.SubscribeMessage) error {
 	resp := message.NewSubackMessage()
-	resp.SetPacketId(msg.PacketId())
+	resp.SetPacketID(msg.PacketID())
 
 	// Subscribe to the different topics
 	var retcodes []byte
@@ -362,7 +362,7 @@ func (p *service) processUnsubscribe(msg *message.UnsubscribeMessage) error {
 	}
 
 	resp := message.NewUnsubackMessage()
-	resp.SetPacketId(msg.PacketId())
+	resp.SetPacketID(msg.PacketID())
 
 	_, err := p.writeMessage(resp)
 	return err

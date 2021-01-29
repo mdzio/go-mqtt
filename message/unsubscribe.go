@@ -20,7 +20,7 @@ import (
 	"sync/atomic"
 )
 
-// An UNSUBSCRIBE Packet is sent by the Client to the Server, to unsubscribe from topics.
+// UnsubscribeMessage is a UNSUBSCRIBE packet, sent by the Client to the Server, to unsubscribe from topics.
 type UnsubscribeMessage struct {
 	header
 
@@ -37,10 +37,10 @@ func NewUnsubscribeMessage() *UnsubscribeMessage {
 	return msg
 }
 
-func (this UnsubscribeMessage) String() string {
-	msgstr := fmt.Sprintf("%s", this.header)
+func (m UnsubscribeMessage) String() string {
+	msgstr := fmt.Sprintf("%s", m.header)
 
-	for i, t := range this.topics {
+	for i, t := range m.topics {
 		msgstr = fmt.Sprintf("%s, Topic%d=%s", msgstr, i, string(t))
 	}
 
@@ -48,28 +48,28 @@ func (this UnsubscribeMessage) String() string {
 }
 
 // Topics returns a list of topics sent by the Client.
-func (this *UnsubscribeMessage) Topics() [][]byte {
-	return this.topics
+func (m *UnsubscribeMessage) Topics() [][]byte {
+	return m.topics
 }
 
 // AddTopic adds a single topic to the message.
-func (this *UnsubscribeMessage) AddTopic(topic []byte) {
-	if this.TopicExists(topic) {
+func (m *UnsubscribeMessage) AddTopic(topic []byte) {
+	if m.TopicExists(topic) {
 		return
 	}
 
-	this.topics = append(this.topics, topic)
-	this.dirty = true
+	m.topics = append(m.topics, topic)
+	m.dirty = true
 }
 
 // RemoveTopic removes a single topic from the list of existing ones in the message.
 // If topic does not exist it just does nothing.
-func (this *UnsubscribeMessage) RemoveTopic(topic []byte) {
+func (m *UnsubscribeMessage) RemoveTopic(topic []byte) {
 	var i int
 	var t []byte
 	var found bool
 
-	for i, t = range this.topics {
+	for i, t = range m.topics {
 		if bytes.Equal(t, topic) {
 			found = true
 			break
@@ -77,15 +77,15 @@ func (this *UnsubscribeMessage) RemoveTopic(topic []byte) {
 	}
 
 	if found {
-		this.topics = append(this.topics[:i], this.topics[i+1:]...)
+		m.topics = append(m.topics[:i], m.topics[i+1:]...)
 	}
 
-	this.dirty = true
+	m.dirty = true
 }
 
 // TopicExists checks to see if a topic exists in the list.
-func (this *UnsubscribeMessage) TopicExists(topic []byte) bool {
-	for _, t := range this.topics {
+func (m *UnsubscribeMessage) TopicExists(topic []byte) bool {
+	for _, t := range m.topics {
 		if bytes.Equal(t, topic) {
 			return true
 		}
@@ -94,37 +94,38 @@ func (this *UnsubscribeMessage) TopicExists(topic []byte) bool {
 	return false
 }
 
-func (this *UnsubscribeMessage) Len() int {
-	if !this.dirty {
-		return len(this.dbuf)
+// Len is the length of the message.
+func (m *UnsubscribeMessage) Len() int {
+	if !m.dirty {
+		return len(m.dbuf)
 	}
 
-	ml := this.msglen()
+	ml := m.msglen()
 
-	if err := this.SetRemainingLength(int32(ml)); err != nil {
+	if err := m.SetRemainingLength(int32(ml)); err != nil {
 		return 0
 	}
 
-	return this.header.msglen() + ml
+	return m.header.msglen() + ml
 }
 
 // Decode reads from the io.Reader parameter until a full message is decoded, or
 // when io.Reader returns EOF or error. The first return value is the number of
 // bytes read from io.Reader. The second is error if Decode encounters any problems.
-func (this *UnsubscribeMessage) Decode(src []byte) (int, error) {
+func (m *UnsubscribeMessage) Decode(src []byte) (int, error) {
 	total := 0
 
-	hn, err := this.header.decode(src[total:])
+	hn, err := m.header.decode(src[total:])
 	total += hn
 	if err != nil {
 		return total, err
 	}
 
 	//this.packetId = binary.BigEndian.Uint16(src[total:])
-	this.packetId = src[total : total+2]
+	m.packetID = src[total : total+2]
 	total += 2
 
-	remlen := int(this.remlen) - (total - hn)
+	remlen := int(m.remlen) - (total - hn)
 	for remlen > 0 {
 		t, n, err := readLPBytes(src[total:])
 		total += n
@@ -132,15 +133,15 @@ func (this *UnsubscribeMessage) Decode(src []byte) (int, error) {
 			return total, err
 		}
 
-		this.topics = append(this.topics, t)
+		m.topics = append(m.topics, t)
 		remlen = remlen - n - 1
 	}
 
-	if len(this.topics) == 0 {
+	if len(m.topics) == 0 {
 		return 0, fmt.Errorf("unsubscribe/Decode: Empty topic list")
 	}
 
-	this.dirty = false
+	m.dirty = false
 
 	return total, nil
 }
@@ -150,44 +151,44 @@ func (this *UnsubscribeMessage) Decode(src []byte) (int, error) {
 // there will be. If Encode returns an error, then the first two return values
 // should be considered invalid.
 // Any changes to the message after Encode() is called will invalidate the io.Reader.
-func (this *UnsubscribeMessage) Encode(dst []byte) (int, error) {
-	if !this.dirty {
-		if len(dst) < len(this.dbuf) {
-			return 0, fmt.Errorf("unsubscribe/Encode: Insufficient buffer size. Expecting %d, got %d.", len(this.dbuf), len(dst))
+func (m *UnsubscribeMessage) Encode(dst []byte) (int, error) {
+	if !m.dirty {
+		if len(dst) < len(m.dbuf) {
+			return 0, fmt.Errorf("unsubscribe/Encode: Insufficient buffer size. Expecting %d, got %d", len(m.dbuf), len(dst))
 		}
 
-		return copy(dst, this.dbuf), nil
+		return copy(dst, m.dbuf), nil
 	}
 
-	hl := this.header.msglen()
-	ml := this.msglen()
+	hl := m.header.msglen()
+	ml := m.msglen()
 
 	if len(dst) < hl+ml {
-		return 0, fmt.Errorf("unsubscribe/Encode: Insufficient buffer size. Expecting %d, got %d.", hl+ml, len(dst))
+		return 0, fmt.Errorf("unsubscribe/Encode: Insufficient buffer size. Expecting %d, got %d", hl+ml, len(dst))
 	}
 
-	if err := this.SetRemainingLength(int32(ml)); err != nil {
+	if err := m.SetRemainingLength(int32(ml)); err != nil {
 		return 0, err
 	}
 
 	total := 0
 
-	n, err := this.header.encode(dst[total:])
+	n, err := m.header.encode(dst[total:])
 	total += n
 	if err != nil {
 		return total, err
 	}
 
-	if this.PacketId() == 0 {
-		this.SetPacketId(uint16(atomic.AddUint64(&gPacketId, 1) & 0xffff))
+	if m.PacketID() == 0 {
+		m.SetPacketID(uint16(atomic.AddUint64(&gPacketID, 1) & 0xffff))
 		//this.packetId = uint16(atomic.AddUint64(&gPacketId, 1) & 0xffff)
 	}
 
-	n = copy(dst[total:], this.packetId)
+	n = copy(dst[total:], m.packetID)
 	//binary.BigEndian.PutUint16(dst[total:], this.packetId)
 	total += n
 
-	for _, t := range this.topics {
+	for _, t := range m.topics {
 		n, err := writeLPBytes(dst[total:], t)
 		total += n
 		if err != nil {
@@ -198,11 +199,11 @@ func (this *UnsubscribeMessage) Encode(dst []byte) (int, error) {
 	return total, nil
 }
 
-func (this *UnsubscribeMessage) msglen() int {
+func (m *UnsubscribeMessage) msglen() int {
 	// packet ID
 	total := 2
 
-	for _, t := range this.topics {
+	for _, t := range m.topics {
 		total += 2 + len(t)
 	}
 

@@ -366,9 +366,9 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 
 	// Authenticate the user, if error, return error and exit
 	user := string(req.Username())
-	log.Tracef("(%s) Authenticating user: %s", req.ClientId(), user)
+	log.Tracef("(%s) Authenticating user: %s", req.ClientID(), user)
 	if err = svr.authMgr.Authenticate(user, string(req.Password())); err != nil {
-		log.Warningf("(%s) Authentication of user %s failed: %v", req.ClientId(), user, err)
+		log.Warningf("(%s) Authentication of user %s failed: %v", req.ClientID(), user, err)
 		resp.SetReturnCode(message.ErrBadUsernameOrPassword)
 		resp.SetSessionPresent(false)
 		writeMessage(conn, resp)
@@ -484,12 +484,12 @@ func (svr *Server) getSession(svc *service, req *message.ConnectMessage, resp *m
 
 	// Check to see if the client supplied an ID, if not, generate one and set
 	// clean session.
-	if len(req.ClientId()) == 0 {
-		req.SetClientId([]byte(fmt.Sprintf("internalclient%d", svc.id)))
+	if len(req.ClientID()) == 0 {
+		req.SetClientID([]byte(fmt.Sprintf("internalclient%d", svc.id)))
 		req.SetCleanSession(true)
 	}
 
-	cid := string(req.ClientId())
+	cid := string(req.ClientID())
 
 	// If CleanSession is NOT set, check the session store for existing session.
 	// If found, return it.

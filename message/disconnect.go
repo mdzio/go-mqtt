@@ -16,13 +16,12 @@ package message
 
 import "fmt"
 
+// DisconnectMessage represents a MQTT disconnect message.
 // The DISCONNECT Packet is the final Control Packet sent from the Client to the Server.
 // It indicates that the Client is disconnecting cleanly.
 type DisconnectMessage struct {
 	header
 }
-
-var _ Message = (*DisconnectMessage)(nil)
 
 // NewDisconnectMessage creates a new DISCONNECT message.
 func NewDisconnectMessage() *DisconnectMessage {
@@ -32,18 +31,20 @@ func NewDisconnectMessage() *DisconnectMessage {
 	return msg
 }
 
-func (this *DisconnectMessage) Decode(src []byte) (int, error) {
-	return this.header.decode(src)
+// Decode decodes the message.
+func (m *DisconnectMessage) Decode(src []byte) (int, error) {
+	return m.header.decode(src)
 }
 
-func (this *DisconnectMessage) Encode(dst []byte) (int, error) {
-	if !this.dirty {
-		if len(dst) < len(this.dbuf) {
-			return 0, fmt.Errorf("disconnect/Encode: Insufficient buffer size. Expecting %d, got %d.", len(this.dbuf), len(dst))
+// Encode encodes the message.
+func (m *DisconnectMessage) Encode(dst []byte) (int, error) {
+	if !m.dirty {
+		if len(dst) < len(m.dbuf) {
+			return 0, fmt.Errorf("disconnect/Encode: Insufficient buffer size. Expecting %d, got %d", len(m.dbuf), len(dst))
 		}
 
-		return copy(dst, this.dbuf), nil
+		return copy(dst, m.dbuf), nil
 	}
 
-	return this.header.encode(dst)
+	return m.header.encode(dst)
 }

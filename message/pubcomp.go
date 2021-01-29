@@ -14,7 +14,7 @@
 
 package message
 
-// The PUBCOMP Packet is the response to a PUBREL Packet. It is the fourth and
+// PubcompMessage is a PUBCOMP packet, the response to a PUBREL Packet. It is the fourth and
 // final packet of the QoS 2 protocol exchange.
 type PubcompMessage struct {
 	PubackMessage

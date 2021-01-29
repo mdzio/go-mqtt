@@ -23,8 +23,8 @@ import (
 func TestSubackMessageFields(t *testing.T) {
 	msg := NewSubackMessage()
 
-	msg.SetPacketId(100)
-	require.Equal(t, 100, int(msg.PacketId()), "Error setting packet ID.")
+	msg.SetPacketID(100)
+	require.Equal(t, 100, int(msg.PacketID()), "Error setting packet ID.")
 
 	msg.AddReturnCode(1)
 	require.Equal(t, 1, len(msg.ReturnCodes()), "Error adding return code.")
@@ -86,7 +86,7 @@ func TestSubackMessageEncode(t *testing.T) {
 	}
 
 	msg := NewSubackMessage()
-	msg.SetPacketId(7)
+	msg.SetPacketID(7)
 	msg.AddReturnCode(0)
 	msg.AddReturnCode(1)
 	msg.AddReturnCode(2)

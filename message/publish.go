@@ -40,7 +40,7 @@ func NewPublishMessage() *PublishMessage {
 
 func (m *PublishMessage) String() string {
 	return fmt.Sprintf("%s, Topic=%q, Packet ID=%d, QoS=%d, Retained=%t, Dup=%t, Payload=%v",
-		m.header, m.topic, m.packetId, m.QoS(), m.Retain(), m.Dup(), m.payload)
+		m.header, m.topic, m.packetID, m.QoS(), m.Retain(), m.Dup(), m.payload)
 }
 
 // Dup returns the value specifying the duplicate delivery of a PUBLISH Control Packet.
@@ -173,7 +173,7 @@ func (m *PublishMessage) Decode(src []byte) (int, error) {
 	// QoS level is 1 or 2
 	if m.QoS() != 0 {
 		//m.packetId = binary.BigEndian.Uint16(src[total:])
-		m.packetId = src[total : total+2]
+		m.packetID = src[total : total+2]
 		total += 2
 	}
 
@@ -232,12 +232,12 @@ func (m *PublishMessage) Encode(dst []byte) (int, error) {
 
 	// The packet identifier field is only present in the PUBLISH packets where the QoS level is 1 or 2
 	if m.QoS() != 0 {
-		if m.PacketId() == 0 {
-			m.SetPacketId(uint16(atomic.AddUint64(&gPacketId, 1) & 0xffff))
+		if m.PacketID() == 0 {
+			m.SetPacketID(uint16(atomic.AddUint64(&gPacketID, 1) & 0xffff))
 			//m.packetId = uint16(atomic.AddUint64(&gPacketId, 1) & 0xffff)
 		}
 
-		n = copy(dst[total:], m.packetId)
+		n = copy(dst[total:], m.packetID)
 		//binary.BigEndian.PutUint16(dst[total:], m.packetId)
 		total += n
 	}

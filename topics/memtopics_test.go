@@ -17,8 +17,8 @@ package topics
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/mdzio/go-mqtt/message"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNextTopicLevelSuccess(t *testing.T) {
@@ -35,15 +35,15 @@ func TestNextTopicLevelSuccess(t *testing.T) {
 	}
 
 	levels := [][][]byte{
-		[][]byte{[]byte("sport"), []byte("tennis"), []byte("player1"), []byte("#")},
-		[][]byte{[]byte("sport"), []byte("tennis"), []byte("player1"), []byte("ranking")},
-		[][]byte{[]byte("sport"), []byte("#")},
-		[][]byte{[]byte("#")},
-		[][]byte{[]byte("sport"), []byte("tennis"), []byte("#")},
-		[][]byte{[]byte("+")},
-		[][]byte{[]byte("+"), []byte("tennis"), []byte("#")},
-		[][]byte{[]byte("sport"), []byte("+"), []byte("player1")},
-		[][]byte{[]byte("+"), []byte("finance")},
+		{[]byte("sport"), []byte("tennis"), []byte("player1"), []byte("#")},
+		{[]byte("sport"), []byte("tennis"), []byte("player1"), []byte("ranking")},
+		{[]byte("sport"), []byte("#")},
+		{[]byte("#")},
+		{[]byte("sport"), []byte("tennis"), []byte("#")},
+		{[]byte("+")},
+		{[]byte("+"), []byte("tennis"), []byte("#")},
+		{[]byte("sport"), []byte("+"), []byte("player1")},
+		{[]byte("+"), []byte("finance")},
 	}
 
 	for i, topic := range topics {

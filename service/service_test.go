@@ -22,10 +22,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/require"
-	"github.com/mdzio/go-mqtt/glog"
 	"github.com/mdzio/go-mqtt/message"
 	"github.com/mdzio/go-mqtt/topics"
+	"github.com/stretchr/testify/require"
 )
 
 var authenticator string = "mockSuccess"
@@ -218,7 +217,7 @@ func TestServiceSub0Pub0(t *testing.T) {
 				count++
 
 				if count == 10 {
-					glog.Debugf("got 10 pub0")
+					log.Debugf("got 10 pub0")
 					close(done2)
 				}
 
@@ -269,7 +268,7 @@ func TestServiceSub1Pub0(t *testing.T) {
 				count++
 
 				if count == 10 {
-					glog.Debugf("got 10 pub0")
+					log.Debugf("got 10 pub0")
 					close(done2)
 				}
 
@@ -340,9 +339,9 @@ func TestServiceSub0Pub1(t *testing.T) {
 					puback, ok := ack.(*message.PubackMessage)
 					require.True(t, ok)
 
-					require.Equal(t, pub.PacketId(), puback.PacketId())
+					require.Equal(t, pub.PacketID(), puback.PacketID())
 
-					if pub.PacketId() == 10 {
+					if pub.PacketID() == 10 {
 						close(done2)
 					}
 
@@ -414,9 +413,9 @@ func TestServiceSub1Pub1(t *testing.T) {
 					puback, ok := ack.(*message.PubackMessage)
 					require.True(t, ok)
 
-					require.Equal(t, pub.PacketId(), puback.PacketId())
+					require.Equal(t, pub.PacketID(), puback.PacketID())
 
-					if pub.PacketId() == 10 {
+					if pub.PacketID() == 10 {
 						close(done3)
 					}
 
@@ -492,9 +491,9 @@ func TestServiceSub2Pub1(t *testing.T) {
 					puback, ok := ack.(*message.PubackMessage)
 					require.True(t, ok)
 
-					require.Equal(t, pub.PacketId(), puback.PacketId())
+					require.Equal(t, pub.PacketID(), puback.PacketID())
 
-					if pub.PacketId() == 10 {
+					if pub.PacketID() == 10 {
 						close(done3)
 					}
 
@@ -561,9 +560,9 @@ func TestServiceSub1Pub2(t *testing.T) {
 					pubcomp, ok := ack.(*message.PubcompMessage)
 					require.True(t, ok)
 
-					require.Equal(t, pub.PacketId(), pubcomp.PacketId())
+					require.Equal(t, pub.PacketID(), pubcomp.PacketID())
 
-					if pub.PacketId() == 10 {
+					if pub.PacketID() == 10 {
 						close(done2)
 					}
 
@@ -635,9 +634,9 @@ func TestServiceSub2Pub2(t *testing.T) {
 					pubcomp, ok := ack.(*message.PubcompMessage)
 					require.True(t, ok)
 
-					require.Equal(t, pub.PacketId(), pubcomp.PacketId())
+					require.Equal(t, pub.PacketID(), pubcomp.PacketID())
 
-					if pub.PacketId() == 10 {
+					if pub.PacketID() == 10 {
 						close(done3)
 					}
 

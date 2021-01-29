@@ -14,6 +14,7 @@
 
 package message
 
+// PubrecMessage is a PUBREC message.
 type PubrecMessage struct {
 	PubackMessage
 }

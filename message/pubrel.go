@@ -14,7 +14,7 @@
 
 package message
 
-// A PUBREL Packet is the response to a PUBREC Packet. It is the third packet of the
+// PubrelMessage is a PUBREL packet, the response to a PUBREC Packet. It is the third packet of the
 // QoS 2 protocol exchange.
 type PubrelMessage struct {
 	PubackMessage

@@ -20,7 +20,7 @@ import (
 )
 
 var (
-	gPacketId uint64 = 0
+	gPacketID uint64 = 0
 )
 
 // Fixed header
@@ -36,7 +36,7 @@ type header struct {
 	mtypeflags []byte
 
 	// Some messages need packet ID, 2 byte uint16
-	packetId []byte
+	packetID []byte
 
 	// Points to the decoding buffer
 	dbuf []byte
@@ -46,40 +46,40 @@ type header struct {
 }
 
 // String returns a string representation of the message.
-func (this header) String() string {
-	return fmt.Sprintf("Type=%q, Flags=%08b, Remaining Length=%d", this.Type().Name(), this.Flags(), this.remlen)
+func (h header) String() string {
+	return fmt.Sprintf("Type=%q, Flags=%08b, Remaining Length=%d", h.Type().Name(), h.Flags(), h.remlen)
 }
 
 // Name returns a string representation of the message type. Examples include
 // "PUBLISH", "SUBSCRIBE", and others. This is statically defined for each of
 // the message types and cannot be changed.
-func (this *header) Name() string {
-	return this.Type().Name()
+func (h *header) Name() string {
+	return h.Type().Name()
 }
 
 // Desc returns a string description of the message type. For example, a
 // CONNECT message would return "Client request to connect to Server." These
 // descriptions are statically defined (copied from the MQTT spec) and cannot
 // be changed.
-func (this *header) Desc() string {
-	return this.Type().Desc()
+func (h *header) Desc() string {
+	return h.Type().Desc()
 }
 
 // Type returns the MessageType of the Message. The retured value should be one
 // of the constants defined for MessageType.
-func (this *header) Type() MessageType {
+func (h *header) Type() Type {
 	//return this.mtype
-	if len(this.mtypeflags) != 1 {
-		this.mtypeflags = make([]byte, 1)
-		this.dirty = true
+	if len(h.mtypeflags) != 1 {
+		h.mtypeflags = make([]byte, 1)
+		h.dirty = true
 	}
 
-	return MessageType(this.mtypeflags[0] >> 4)
+	return Type(h.mtypeflags[0] >> 4)
 }
 
 // SetType sets the message type of this message. It also correctly sets the
 // default flags for the message type. It returns an error if the type is invalid.
-func (this *header) SetType(mtype MessageType) error {
+func (h *header) SetType(mtype Type) error {
 	if !mtype.Valid() {
 		return fmt.Errorf("header/SetType: Invalid control packet type %d", mtype)
 	}
@@ -88,56 +88,56 @@ func (this *header) SetType(mtype MessageType) error {
 	// buffer. In this case, it means the buffer is probably a sub-slice of another
 	// slice. If that's the case, then during encoding we would have copied the whole
 	// backing buffer anyway.
-	if len(this.mtypeflags) != 1 {
-		this.mtypeflags = make([]byte, 1)
-		this.dirty = true
+	if len(h.mtypeflags) != 1 {
+		h.mtypeflags = make([]byte, 1)
+		h.dirty = true
 	}
 
-	this.mtypeflags[0] = byte(mtype)<<4 | (mtype.DefaultFlags() & 0xf)
+	h.mtypeflags[0] = byte(mtype)<<4 | (mtype.DefaultFlags() & 0xf)
 
 	return nil
 }
 
 // Flags returns the fixed header flags for this message.
-func (this *header) Flags() byte {
+func (h *header) Flags() byte {
 	//return this.flags
-	return this.mtypeflags[0] & 0x0f
+	return h.mtypeflags[0] & 0x0f
 }
 
 // RemainingLength returns the length of the non-fixed-header part of the message.
-func (this *header) RemainingLength() int32 {
-	return this.remlen
+func (h *header) RemainingLength() int32 {
+	return h.remlen
 }
 
 // SetRemainingLength sets the length of the non-fixed-header part of the message.
 // It returns error if the length is greater than 268435455, which is the max
 // message length as defined by the MQTT spec.
-func (this *header) SetRemainingLength(remlen int32) error {
+func (h *header) SetRemainingLength(remlen int32) error {
 	if remlen > maxRemainingLength || remlen < 0 {
 		return fmt.Errorf("header/SetLength: Remaining length (%d) out of bound (max %d, min 0)", remlen, maxRemainingLength)
 	}
 
-	this.remlen = remlen
-	this.dirty = true
+	h.remlen = remlen
+	h.dirty = true
 
 	return nil
 }
 
-func (this *header) Len() int {
-	return this.msglen()
+func (h *header) Len() int {
+	return h.msglen()
 }
 
-// PacketId returns the ID of the packet.
-func (this *header) PacketId() uint16 {
-	if len(this.packetId) == 2 {
-		return binary.BigEndian.Uint16(this.packetId)
+// PacketID returns the ID of the packet.
+func (h *header) PacketID() uint16 {
+	if len(h.packetID) == 2 {
+		return binary.BigEndian.Uint16(h.packetID)
 	}
 
 	return 0
 }
 
-// SetPacketId sets the ID of the packet.
-func (this *header) SetPacketId(v uint16) {
+// SetPacketID sets the ID of the packet.
+func (h *header) SetPacketID(v uint16) {
 	// If setting to 0, nothing to do, move on
 	if v == 0 {
 		return
@@ -145,39 +145,39 @@ func (this *header) SetPacketId(v uint16) {
 
 	// If packetId buffer is not 2 bytes (uint16), then we allocate a new one and
 	// make dirty. Then we encode the packet ID into the buffer.
-	if len(this.packetId) != 2 {
-		this.packetId = make([]byte, 2)
-		this.dirty = true
+	if len(h.packetID) != 2 {
+		h.packetID = make([]byte, 2)
+		h.dirty = true
 	}
 
 	// Notice we don't set the message to be dirty when we are not allocating a new
 	// buffer. In this case, it means the buffer is probably a sub-slice of another
 	// slice. If that's the case, then during encoding we would have copied the whole
 	// backing buffer anyway.
-	binary.BigEndian.PutUint16(this.packetId, v)
+	binary.BigEndian.PutUint16(h.packetID, v)
 }
 
-func (this *header) encode(dst []byte) (int, error) {
-	ml := this.msglen()
+func (h *header) encode(dst []byte) (int, error) {
+	ml := h.msglen()
 
 	if len(dst) < ml {
-		return 0, fmt.Errorf("header/Encode: Insufficient buffer size. Expecting %d, got %d.", ml, len(dst))
+		return 0, fmt.Errorf("header/Encode: Insufficient buffer size. Expecting %d, got %d", ml, len(dst))
 	}
 
 	total := 0
 
-	if this.remlen > maxRemainingLength || this.remlen < 0 {
-		return total, fmt.Errorf("header/Encode: Remaining length (%d) out of bound (max %d, min 0)", this.remlen, maxRemainingLength)
+	if h.remlen > maxRemainingLength || h.remlen < 0 {
+		return total, fmt.Errorf("header/Encode: Remaining length (%d) out of bound (max %d, min 0)", h.remlen, maxRemainingLength)
 	}
 
-	if !this.Type().Valid() {
-		return total, fmt.Errorf("header/Encode: Invalid message type %d", this.Type())
+	if !h.Type().Valid() {
+		return total, fmt.Errorf("header/Encode: Invalid message type %d", h.Type())
 	}
 
-	dst[total] = this.mtypeflags[0]
-	total += 1
+	dst[total] = h.mtypeflags[0]
+	total++
 
-	n := binary.PutUvarint(dst[total:], uint64(this.remlen))
+	n := binary.PutUvarint(dst[total:], uint64(h.remlen))
 	total += n
 
 	return total, nil
@@ -186,59 +186,59 @@ func (this *header) encode(dst []byte) (int, error) {
 // Decode reads from the io.Reader parameter until a full message is decoded, or
 // when io.Reader returns EOF or error. The first return value is the number of
 // bytes read from io.Reader. The second is error if Decode encounters any problems.
-func (this *header) decode(src []byte) (int, error) {
+func (h *header) decode(src []byte) (int, error) {
 	total := 0
 
-	this.dbuf = src
+	h.dbuf = src
 
-	mtype := this.Type()
+	mtype := h.Type()
 	//mtype := MessageType(0)
 
-	this.mtypeflags = src[total : total+1]
+	h.mtypeflags = src[total : total+1]
 	//mtype := MessageType(src[total] >> 4)
-	if !this.Type().Valid() {
-		return total, fmt.Errorf("header/Decode: Invalid message type %d.", mtype)
+	if !h.Type().Valid() {
+		return total, fmt.Errorf("header/Decode: Invalid message type %d", mtype)
 	}
 
-	if mtype != this.Type() {
-		return total, fmt.Errorf("header/Decode: Invalid message type %d. Expecting %d.", this.Type(), mtype)
+	if mtype != h.Type() {
+		return total, fmt.Errorf("header/Decode: Invalid message type %d. Expecting %d", h.Type(), mtype)
 	}
 
 	//this.flags = src[total] & 0x0f
-	if this.Type() != PUBLISH && this.Flags() != this.Type().DefaultFlags() {
-		return total, fmt.Errorf("header/Decode: Invalid message (%d) flags. Expecting %d, got %d", this.Type(), this.Type().DefaultFlags(), this.Flags())
+	if h.Type() != PUBLISH && h.Flags() != h.Type().DefaultFlags() {
+		return total, fmt.Errorf("header/Decode: Invalid message (%d) flags. Expecting %d, got %d", h.Type(), h.Type().DefaultFlags(), h.Flags())
 	}
 
-	if this.Type() == PUBLISH && !ValidQos((this.Flags()>>1)&0x3) {
-		return total, fmt.Errorf("header/Decode: Invalid QoS (%d) for PUBLISH message.", (this.Flags()>>1)&0x3)
+	if h.Type() == PUBLISH && !ValidQos((h.Flags()>>1)&0x3) {
+		return total, fmt.Errorf("header/Decode: Invalid QoS (%d) for PUBLISH message", (h.Flags()>>1)&0x3)
 	}
 
 	total++
 
 	remlen, m := binary.Uvarint(src[total:])
 	total += m
-	this.remlen = int32(remlen)
+	h.remlen = int32(remlen)
 
-	if this.remlen > maxRemainingLength || remlen < 0 {
-		return total, fmt.Errorf("header/Decode: Remaining length (%d) out of bound (max %d, min 0)", this.remlen, maxRemainingLength)
+	if h.remlen > maxRemainingLength || remlen < 0 {
+		return total, fmt.Errorf("header/Decode: Remaining length (%d) out of bound (max %d, min 0)", h.remlen, maxRemainingLength)
 	}
 
-	if int(this.remlen) > len(src[total:]) {
-		return total, fmt.Errorf("header/Decode: Remaining length (%d) is greater than remaining buffer (%d)", this.remlen, len(src[total:]))
+	if int(h.remlen) > len(src[total:]) {
+		return total, fmt.Errorf("header/Decode: Remaining length (%d) is greater than remaining buffer (%d)", h.remlen, len(src[total:]))
 	}
 
 	return total, nil
 }
 
-func (this *header) msglen() int {
+func (h *header) msglen() int {
 	// message type and flag byte
 	total := 1
 
-	if this.remlen <= 127 {
-		total += 1
-	} else if this.remlen <= 16383 {
+	if h.remlen <= 127 {
+		total++
+	} else if h.remlen <= 16383 {
 		total += 2
-	} else if this.remlen <= 2097151 {
+	} else if h.remlen <= 2097151 {
 		total += 3
 	} else {
 		total += 4

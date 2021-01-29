@@ -70,9 +70,9 @@ func TestPublishMessageFields(t *testing.T) {
 
 	require.Error(t, err)
 
-	msg.SetPacketId(100)
+	msg.SetPacketID(100)
 
-	require.Equal(t, 100, int(msg.PacketId()), "Error setting acket ID.")
+	require.Equal(t, 100, int(msg.PacketID()), "Error setting acket ID.")
 
 	msg.SetPayload([]byte("this is a payload to be sent"))
 
@@ -96,7 +96,7 @@ func TestPublishMessageDecode1(t *testing.T) {
 
 	require.NoError(t, err, "Error decoding message.")
 	require.Equal(t, len(msgBytes), n, "Error decoding message.")
-	require.Equal(t, 7, int(msg.PacketId()), "Error decoding message.")
+	require.Equal(t, 7, int(msg.PacketID()), "Error decoding message.")
 	require.Equal(t, "surgemq", string(msg.Topic()), "Error deocding topic name.")
 	require.Equal(t, []byte{'s', 'e', 'n', 'd', ' ', 'm', 'e', ' ', 'h', 'o', 'm', 'e'}, msg.Payload(), "Error deocding payload.")
 }
@@ -152,7 +152,7 @@ func TestPublishMessageEncode(t *testing.T) {
 	msg := NewPublishMessage()
 	msg.SetTopic([]byte("surgemq"))
 	msg.SetQoS(1)
-	msg.SetPacketId(7)
+	msg.SetPacketID(7)
 	msg.SetPayload([]byte{'s', 'e', 'n', 'd', ' ', 'm', 'e', ' ', 'h', 'o', 'm', 'e'})
 
 	dst := make([]byte, 100)
@@ -167,7 +167,7 @@ func TestPublishMessageEncode(t *testing.T) {
 func TestPublishMessageEncode2(t *testing.T) {
 	msg := NewPublishMessage()
 	msg.SetTopic([]byte(""))
-	msg.SetPacketId(7)
+	msg.SetPacketID(7)
 	msg.SetPayload([]byte{'s', 'e', 'n', 'd', ' ', 'm', 'e', ' ', 'h', 'o', 'm', 'e'})
 
 	dst := make([]byte, 100)

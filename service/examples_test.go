@@ -39,7 +39,7 @@ func ExampleClient() {
 	msg.SetWillQos(1)
 	msg.SetVersion(4)
 	msg.SetCleanSession(true)
-	msg.SetClientId([]byte("surgemq"))
+	msg.SetClientID([]byte("surgemq"))
 	msg.SetKeepAlive(10)
 	msg.SetWillTopic([]byte("will"))
 	msg.SetWillMessage([]byte("send me home"))

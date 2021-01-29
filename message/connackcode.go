@@ -19,33 +19,33 @@ package message
 type ConnackCode byte
 
 const (
-	// Connection accepted
+	// ConnectionAccepted - Connection accepted.
 	ConnectionAccepted ConnackCode = iota
 
-	// The Server does not support the level of the MQTT protocol requested by the Client
+	// ErrInvalidProtocolVersion - The Server does not support the level of the MQTT protocol requested by the Client.
 	ErrInvalidProtocolVersion
 
-	// The Client identifier is correct UTF-8 but not allowed by the server
+	// ErrIdentifierRejected - The Client identifier is correct UTF-8 but not allowed by the server.
 	ErrIdentifierRejected
 
-	// The Network Connection has been made but the MQTT service is unavailable
+	// ErrServerUnavailable - The Network Connection has been made but the MQTT service is unavailable.
 	ErrServerUnavailable
 
-	// The data in the user name or password is malformed
+	// ErrBadUsernameOrPassword - The data in the user name or password is malformed.
 	ErrBadUsernameOrPassword
 
-	// The Client is not authorized to connect
+	// ErrNotAuthorized - The Client is not authorized to connect.
 	ErrNotAuthorized
 )
 
 // Value returns the value of the ConnackCode, which is just the byte representation
-func (this ConnackCode) Value() byte {
-	return byte(this)
+func (cc ConnackCode) Value() byte {
+	return byte(cc)
 }
 
 // Desc returns the description of the ConnackCode
-func (this ConnackCode) Desc() string {
-	switch this {
+func (cc ConnackCode) Desc() string {
+	switch cc {
 	case 0:
 		return "Connection accepted"
 	case 1:
@@ -64,13 +64,13 @@ func (this ConnackCode) Desc() string {
 }
 
 // Valid checks to see if the ConnackCode is valid. Currently valid codes are <= 5
-func (this ConnackCode) Valid() bool {
-	return this <= 5
+func (cc ConnackCode) Valid() bool {
+	return cc <= 5
 }
 
 // Error returns the corresonding error string for the ConnackCode
-func (this ConnackCode) Error() string {
-	switch this {
+func (cc ConnackCode) Error() string {
+	switch cc {
 	case 0:
 		return "Connection accepted"
 	case 1:

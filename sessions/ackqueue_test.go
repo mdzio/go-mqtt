@@ -17,8 +17,8 @@ package sessions
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/mdzio/go-mqtt/message"
+	"github.com/stretchr/testify/require"
 )
 
 func TestAckQueueOutOfOrder(t *testing.T) {
@@ -33,7 +33,7 @@ func TestAckQueueOutOfOrder(t *testing.T) {
 	require.Equal(t, 12, q.len())
 
 	ack1 := message.NewPubackMessage()
-	ack1.SetPacketId(1)
+	ack1.SetPacketID(1)
 	q.Ack(ack1)
 
 	acked := q.Acked()
@@ -41,7 +41,7 @@ func TestAckQueueOutOfOrder(t *testing.T) {
 	require.Equal(t, 0, len(acked))
 
 	ack0 := message.NewPubackMessage()
-	ack0.SetPacketId(0)
+	ack0.SetPacketID(0)
 	q.Ack(ack0)
 
 	acked = q.Acked()

@@ -67,17 +67,17 @@ func TestConnectMessageFields(t *testing.T) {
 	err = msg.SetWillQos(4)
 	require.Error(t, err)
 
-	err = msg.SetClientId([]byte("j0j0jfajf02j0asdjf"))
+	err = msg.SetClientID([]byte("j0j0jfajf02j0asdjf"))
 	require.NoError(t, err, "Error setting client ID")
 
-	require.Equal(t, "j0j0jfajf02j0asdjf", string(msg.ClientId()), "Error setting client ID.")
+	require.Equal(t, "j0j0jfajf02j0asdjf", string(msg.ClientID()), "Error setting client ID.")
 
-	err = msg.SetClientId([]byte("this is good for v3"))
+	err = msg.SetClientID([]byte("this is good for v3"))
 	require.NoError(t, err)
 
 	msg.SetVersion(0x4)
 
-	err = msg.SetClientId([]byte("this is no good for v4!"))
+	err = msg.SetClientID([]byte("this is no good for v4!"))
 	require.Error(t, err)
 
 	msg.SetVersion(0x3)
@@ -163,7 +163,7 @@ func TestConnectMessageDecode(t *testing.T) {
 	require.Equal(t, len(msgBytes), n, "Error decoding message.")
 	require.Equal(t, 206, int(msg.connectFlags), "Incorrect flag value.")
 	require.Equal(t, 10, int(msg.KeepAlive()), "Incorrect KeepAlive value.")
-	require.Equal(t, "surgemq", string(msg.ClientId()), "Incorrect client ID value.")
+	require.Equal(t, "surgemq", string(msg.ClientID()), "Incorrect client ID value.")
 	require.Equal(t, "will", string(msg.WillTopic()), "Incorrect will topic value.")
 	require.Equal(t, "send me home", string(msg.WillMessage()), "Incorrect will message value.")
 	require.Equal(t, "surgemq", string(msg.Username()), "Incorrect username value.")
@@ -308,7 +308,7 @@ func TestConnectMessageEncode(t *testing.T) {
 	msg.SetWillQos(1)
 	msg.SetVersion(4)
 	msg.SetCleanSession(true)
-	msg.SetClientId([]byte("surgemq"))
+	msg.SetClientID([]byte("surgemq"))
 	msg.SetKeepAlive(10)
 	msg.SetWillTopic([]byte("will"))
 	msg.SetWillMessage([]byte("send me home"))

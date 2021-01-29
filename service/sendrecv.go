@@ -42,33 +42,33 @@ func (r timeoutReader) Read(b []byte) (int, error) {
 }
 
 // receiver() reads data from the network, and writes the data into the incoming buffer
-func (this *service) receiver() {
+func (svc *service) receiver() {
 	defer func() {
 		// Let's recover from panic
 		if r := recover(); r != nil {
-			log.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
+			log.Errorf("(%s) Recovering from panic: %v", svc.cid(), r)
 		}
 
-		this.wgStopped.Done()
+		svc.wgStopped.Done()
 	}()
 
-	this.wgStarted.Done()
+	svc.wgStarted.Done()
 
-	switch conn := this.conn.(type) {
+	switch conn := svc.conn.(type) {
 	case net.Conn:
 		//log.Debugf("server/handleConnection: Setting read deadline to %d", time.Second*time.Duration(this.keepAlive))
-		keepAlive := time.Second * time.Duration(this.keepAlive)
+		keepAlive := time.Second * time.Duration(svc.keepAlive)
 		r := timeoutReader{
 			d:    keepAlive + (keepAlive / 2),
 			conn: conn,
 		}
 
 		for {
-			_, err := this.in.ReadFrom(r)
+			_, err := svc.in.ReadFrom(r)
 
 			if err != nil {
 				if !isEOF(err) {
-					log.Warningf("(%s) Reading from connection failed: %v", this.cid(), err)
+					log.Warningf("(%s) Reading from connection failed: %v", svc.cid(), err)
 				}
 				return
 			}
@@ -78,31 +78,31 @@ func (this *service) receiver() {
 	//	log.Errorf("(%s) Websocket: %v", this.cid(), ErrInvalidConnectionType)
 
 	default:
-		log.Errorf("(%s) %v", this.cid(), ErrInvalidConnectionType)
+		log.Errorf("(%s) %v", svc.cid(), ErrInvalidConnectionType)
 	}
 }
 
 // sender() writes data from the outgoing buffer to the network
-func (this *service) sender() {
+func (svc *service) sender() {
 	defer func() {
 		// Let's recover from panic
 		if r := recover(); r != nil {
-			log.Errorf("(%s) Recovering from panic: %v", this.cid(), r)
+			log.Errorf("(%s) Recovering from panic: %v", svc.cid(), r)
 		}
 
-		this.wgStopped.Done()
+		svc.wgStopped.Done()
 	}()
 
-	this.wgStarted.Done()
+	svc.wgStarted.Done()
 
-	switch conn := this.conn.(type) {
+	switch conn := svc.conn.(type) {
 	case net.Conn:
 		for {
-			_, err := this.out.WriteTo(conn)
+			_, err := svc.out.WriteTo(conn)
 
 			if err != nil {
 				if !isEOF(err) {
-					log.Warningf("(%s) Writing to connection failed: %v", this.cid(), err)
+					log.Warningf("(%s) Writing to connection failed: %v", svc.cid(), err)
 				}
 				return
 			}
@@ -112,20 +112,20 @@ func (this *service) sender() {
 	//	log.Errorf("(%s) Websocket not supported", this.cid())
 
 	default:
-		log.Errorf("(%s) Invalid connection type", this.cid())
+		log.Errorf("(%s) Invalid connection type", svc.cid())
 	}
 }
 
 // peekMessageSize() reads, but not commits, enough bytes to determine the size of
 // the next message and returns the type and size.
-func (this *service) peekMessageSize() (message.MessageType, int, error) {
+func (svc *service) peekMessageSize() (message.Type, int, error) {
 	var (
 		b   []byte
 		err error
 		cnt int = 2
 	)
 
-	if this.in == nil {
+	if svc.in == nil {
 		err = ErrBufferNotReady
 		return 0, 0, err
 	}
@@ -138,7 +138,7 @@ func (this *service) peekMessageSize() (message.MessageType, int, error) {
 		}
 
 		// Peek cnt bytes from the input buffer.
-		b, err = this.in.ReadWait(cnt)
+		b, err = svc.in.ReadWait(cnt)
 		if err != nil {
 			return 0, 0, err
 		}
@@ -163,14 +163,14 @@ func (this *service) peekMessageSize() (message.MessageType, int, error) {
 	// Total message length is remlen + 1 (msg type) + m (remlen bytes)
 	total := int(remlen) + 1 + m
 
-	mtype := message.MessageType(b[0] >> 4)
+	mtype := message.Type(b[0] >> 4)
 
 	return mtype, total, err
 }
 
 // peekMessage() reads a message from the buffer, but the bytes are NOT committed.
 // This means the buffer still thinks the bytes are not read yet.
-func (this *service) peekMessage(mtype message.MessageType, total int) (message.Message, int, error) {
+func (svc *service) peekMessage(mtype message.Type, total int) (message.Message, int, error) {
 	var (
 		b    []byte
 		err  error
@@ -178,14 +178,14 @@ func (this *service) peekMessage(mtype message.MessageType, total int) (message.
 		msg  message.Message
 	)
 
-	if this.in == nil {
+	if svc.in == nil {
 		return nil, 0, ErrBufferNotReady
 	}
 
 	// Peek until we get total bytes
 	for i = 0; ; i++ {
 		// Peek remlen bytes from the input buffer.
-		b, err = this.in.ReadWait(total)
+		b, err = svc.in.ReadWait(total)
 		if err != nil && err != ErrBufferInsufficientData {
 			return nil, 0, err
 		}
@@ -207,7 +207,7 @@ func (this *service) peekMessage(mtype message.MessageType, total int) (message.
 
 // readMessage() reads and copies a message from the buffer. The buffer bytes are
 // committed as a result of the read.
-func (this *service) readMessage(mtype message.MessageType, total int) (message.Message, int, error) {
+func (svc *service) readMessage(mtype message.Type, total int) (message.Message, int, error) {
 	var (
 		b   []byte
 		err error
@@ -215,19 +215,19 @@ func (this *service) readMessage(mtype message.MessageType, total int) (message.
 		msg message.Message
 	)
 
-	if this.in == nil {
+	if svc.in == nil {
 		err = ErrBufferNotReady
 		return nil, 0, err
 	}
 
-	if len(this.intmp) < total {
-		this.intmp = make([]byte, total)
+	if len(svc.intmp) < total {
+		svc.intmp = make([]byte, total)
 	}
 
 	// Read until we get total bytes
 	l := 0
 	for l < total {
-		n, err = this.in.Read(this.intmp[l:])
+		n, err = svc.in.Read(svc.intmp[l:])
 		l += n
 		log.Debugf("read %d bytes, total %d", n, l)
 		if err != nil {
@@ -235,7 +235,7 @@ func (this *service) readMessage(mtype message.MessageType, total int) (message.
 		}
 	}
 
-	b = this.intmp[:total]
+	b = svc.intmp[:total]
 
 	msg, err = mtype.New()
 	if err != nil {
@@ -247,7 +247,7 @@ func (this *service) readMessage(mtype message.MessageType, total int) (message.
 }
 
 // writeMessage() writes a message to the outgoing buffer
-func (this *service) writeMessage(msg message.Message) (int, error) {
+func (svc *service) writeMessage(msg message.Message) (int, error) {
 	var (
 		l    int = msg.Len()
 		m, n int
@@ -256,7 +256,7 @@ func (this *service) writeMessage(msg message.Message) (int, error) {
 		wrap bool
 	)
 
-	if this.out == nil {
+	if svc.out == nil {
 		return 0, ErrBufferNotReady
 	}
 
@@ -272,25 +272,25 @@ func (this *service) writeMessage(msg message.Message) (int, error) {
 	// to this client, then they will all block. However, this will do for now.
 	//
 	// FIXME: Try to find a better way than a mutex...if possible.
-	this.wmu.Lock()
-	defer this.wmu.Unlock()
+	svc.wmu.Lock()
+	defer svc.wmu.Unlock()
 
-	buf, wrap, err = this.out.WriteWait(l)
+	buf, wrap, err = svc.out.WriteWait(l)
 	if err != nil {
 		return 0, err
 	}
 
 	if wrap {
-		if len(this.outtmp) < l {
-			this.outtmp = make([]byte, l)
+		if len(svc.outtmp) < l {
+			svc.outtmp = make([]byte, l)
 		}
 
-		n, err = msg.Encode(this.outtmp[0:])
+		n, err = msg.Encode(svc.outtmp[0:])
 		if err != nil {
 			return 0, err
 		}
 
-		m, err = this.out.Write(this.outtmp[0:n])
+		m, err = svc.out.Write(svc.outtmp[0:n])
 		if err != nil {
 			return m, err
 		}
@@ -300,13 +300,13 @@ func (this *service) writeMessage(msg message.Message) (int, error) {
 			return 0, err
 		}
 
-		m, err = this.out.WriteCommit(n)
+		m, err = svc.out.WriteCommit(n)
 		if err != nil {
 			return 0, err
 		}
 	}
 
-	this.outStat.increment(int64(m))
+	svc.outStat.increment(int64(m))
 
 	return m, nil
 }

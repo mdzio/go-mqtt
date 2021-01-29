@@ -23,8 +23,8 @@ import (
 func TestSubscribeMessageFields(t *testing.T) {
 	msg := NewSubscribeMessage()
 
-	msg.SetPacketId(100)
-	require.Equal(t, 100, int(msg.PacketId()), "Error setting packet ID.")
+	msg.SetPacketID(100)
+	require.Equal(t, 100, int(msg.PacketID()), "Error setting packet ID.")
 
 	msg.AddTopic([]byte("/a/b/#/c"), 1)
 	require.Equal(t, 1, len(msg.Topics()), "Error adding topic.")
@@ -106,7 +106,7 @@ func TestSubscribeMessageEncode(t *testing.T) {
 	}
 
 	msg := NewSubscribeMessage()
-	msg.SetPacketId(7)
+	msg.SetPacketID(7)
 	msg.AddTopic([]byte("surgemq"), 0)
 	msg.AddTopic([]byte("/a/b/#/c"), 1)
 	msg.AddTopic([]byte("/a/b/#/cdd"), 2)

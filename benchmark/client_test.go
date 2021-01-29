@@ -104,7 +104,7 @@ func connectToServer(t testing.TB, uri string, cid int) *service.Client {
 
 func newSubscribeMessage(topic string, qos byte) *message.SubscribeMessage {
 	msg := message.NewSubscribeMessage()
-	msg.SetPacketId(1)
+	msg.SetPacketID(1)
 	msg.AddTopic([]byte(topic), qos)
 
 	return msg
@@ -124,7 +124,7 @@ func newConnectMessage(cid int) *message.ConnectMessage {
 	msg.SetWillQos(1)
 	msg.SetVersion(byte(version))
 	msg.SetCleanSession(true)
-	msg.SetClientId([]byte(fmt.Sprintf("surgemq%d", cid)))
+	msg.SetClientID([]byte(fmt.Sprintf("surgemq%d", cid)))
 	msg.SetKeepAlive(10)
 	msg.SetWillTopic([]byte("will"))
 	msg.SetWillMessage([]byte("send me home"))

@@ -319,9 +319,9 @@ func (svc *service) subscribe(msg *message.SubscribeMessage, onComplete OnComple
 			return nil
 		}
 
-		if sub.PacketId() != suback.PacketId() {
+		if sub.PacketID() != suback.PacketID() {
 			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Sub and Suback packet ID not the same. %d != %d", sub.PacketId(), suback.PacketId()))
+				return onComplete(msg, ack, fmt.Errorf("Sub and Suback packet ID not the same. %d != %d", sub.PacketID(), suback.PacketID()))
 			}
 			return nil
 		}
@@ -394,9 +394,9 @@ func (svc *service) unsubscribe(msg *message.UnsubscribeMessage, onComplete OnCo
 			return nil
 		}
 
-		if unsub.PacketId() != unsuback.PacketId() {
+		if unsub.PacketID() != unsuback.PacketID() {
 			if onComplete != nil {
-				return onComplete(msg, ack, fmt.Errorf("Unsub and Unsuback packet ID not the same. %d != %d", unsub.PacketId(), unsuback.PacketId()))
+				return onComplete(msg, ack, fmt.Errorf("Unsub and Unsuback packet ID not the same. %d != %d", unsub.PacketID(), unsuback.PacketID()))
 			}
 			return nil
 		}

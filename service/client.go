@@ -56,8 +56,8 @@ type Client struct {
 // Connect is for MQTT clients to open a connection to a remote server. It needs to
 // know the URI, e.g., "tcp://127.0.0.1:1883", so it knows where to connect to. It also
 // needs to be supplied with the MQTT CONNECT message.
-func (this *Client) Connect(uri string, msg *message.ConnectMessage) (err error) {
-	this.checkConfiguration()
+func (cln *Client) Connect(uri string, msg *message.ConnectMessage) (err error) {
+	cln.checkConfiguration()
 
 	if msg == nil {
 		return fmt.Errorf("msg is nil")
@@ -91,7 +91,7 @@ func (this *Client) Connect(uri string, msg *message.ConnectMessage) (err error)
 		return err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(this.ConnectTimeout)))
+	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(cln.ConnectTimeout)))
 
 	resp, err := getConnackMessage(conn)
 	if err != nil {
@@ -102,43 +102,44 @@ func (this *Client) Connect(uri string, msg *message.ConnectMessage) (err error)
 		return resp.ReturnCode()
 	}
 
-	this.svc = &service{
+	cln.svc = &service{
 		id:     atomic.AddUint64(&gsvcid, 1),
 		client: true,
 		conn:   conn,
 
 		keepAlive:      int(msg.KeepAlive()),
-		connectTimeout: this.ConnectTimeout,
-		ackTimeout:     this.AckTimeout,
-		timeoutRetries: this.TimeoutRetries,
+		connectTimeout: cln.ConnectTimeout,
+		ackTimeout:     cln.AckTimeout,
+		timeoutRetries: cln.TimeoutRetries,
 	}
 
-	err = this.getSession(this.svc, msg, resp)
+	err = cln.getSession(cln.svc, msg, resp)
 	if err != nil {
 		return err
 	}
 
 	p := topics.NewMemProvider()
-	topics.Register(this.svc.sess.ID(), p)
+	topics.Register(cln.svc.sess.ID(), p)
 
-	this.svc.topicsMgr, err = topics.NewManager(this.svc.sess.ID())
+	cln.svc.topicsMgr, err = topics.NewManager(cln.svc.sess.ID())
 	if err != nil {
 		return err
 	}
 
-	if err := this.svc.start(); err != nil {
-		this.svc.stop()
+	if err := cln.svc.start(); err != nil {
+		cln.svc.stop()
 		return err
 	}
 
-	this.svc.inStat.increment(int64(msg.Len()))
-	this.svc.outStat.increment(int64(resp.Len()))
+	cln.svc.inStat.increment(int64(msg.Len()))
+	cln.svc.outStat.increment(int64(resp.Len()))
 
 	return nil
 }
 
-func (this *Client) ConnectTLS(uri string, msg *message.ConnectMessage, cfg *tls.Config) (err error) {
-	this.checkConfiguration()
+// ConnectTLS is for MQTT clients to open a TLS connection to a remote server.
+func (cln *Client) ConnectTLS(uri string, msg *message.ConnectMessage, cfg *tls.Config) (err error) {
+	cln.checkConfiguration()
 
 	if msg == nil {
 		return fmt.Errorf("msg is nil")
@@ -172,7 +173,7 @@ func (this *Client) ConnectTLS(uri string, msg *message.ConnectMessage, cfg *tls
 		return err
 	}
 
-	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(this.ConnectTimeout)))
+	conn.SetReadDeadline(time.Now().Add(time.Second * time.Duration(cln.ConnectTimeout)))
 
 	resp, err := getConnackMessage(conn)
 	if err != nil {
@@ -183,37 +184,37 @@ func (this *Client) ConnectTLS(uri string, msg *message.ConnectMessage, cfg *tls
 		return resp.ReturnCode()
 	}
 
-	this.svc = &service{
+	cln.svc = &service{
 		id:     atomic.AddUint64(&gsvcid, 1),
 		client: true,
 		conn:   conn,
 
 		keepAlive:      int(msg.KeepAlive()),
-		connectTimeout: this.ConnectTimeout,
-		ackTimeout:     this.AckTimeout,
-		timeoutRetries: this.TimeoutRetries,
+		connectTimeout: cln.ConnectTimeout,
+		ackTimeout:     cln.AckTimeout,
+		timeoutRetries: cln.TimeoutRetries,
 	}
 
-	err = this.getSession(this.svc, msg, resp)
+	err = cln.getSession(cln.svc, msg, resp)
 	if err != nil {
 		return err
 	}
 
 	p := topics.NewMemProvider()
-	topics.Register(this.svc.sess.ID(), p)
+	topics.Register(cln.svc.sess.ID(), p)
 
-	this.svc.topicsMgr, err = topics.NewManager(this.svc.sess.ID())
+	cln.svc.topicsMgr, err = topics.NewManager(cln.svc.sess.ID())
 	if err != nil {
 		return err
 	}
 
-	if err := this.svc.start(); err != nil {
-		this.svc.stop()
+	if err := cln.svc.start(); err != nil {
+		cln.svc.stop()
 		return err
 	}
 
-	this.svc.inStat.increment(int64(msg.Len()))
-	this.svc.outStat.increment(int64(resp.Len()))
+	cln.svc.inStat.increment(int64(msg.Len()))
+	cln.svc.outStat.increment(int64(resp.Len()))
 
 	return nil
 }
@@ -223,8 +224,8 @@ func (this *Client) ConnectTLS(uri string, msg *message.ConnectMessage, cfg *tls
 // immediately after the message is sent to the outgoing buffer. For QOS 1 messages,
 // onComplete is called when PUBACK is received. For QOS 2 messages, onComplete is
 // called after the PUBCOMP message is received.
-func (this *Client) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
-	return this.svc.publish(msg, onComplete)
+func (cln *Client) Publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
+	return cln.svc.publish(msg, onComplete)
 }
 
 // Subscribe sends a single SUBSCRIBE message to the server. The SUBSCRIBE message
@@ -236,8 +237,8 @@ func (this *Client) Publish(msg *message.PublishMessage, onComplete OnCompleteFu
 // client subscribed to, the onPublish function is called to handle those messages.
 // So in effect, the client can supply different onPublish functions for different
 // topics.
-func (this *Client) Subscribe(msg *message.SubscribeMessage, onComplete OnCompleteFunc, onPublish OnPublishFunc) error {
-	return this.svc.subscribe(msg, onComplete, onPublish)
+func (cln *Client) Subscribe(msg *message.SubscribeMessage, onComplete OnCompleteFunc, onPublish OnPublishFunc) error {
+	return cln.svc.subscribe(msg, onComplete, onPublish)
 }
 
 // Unsubscribe sends a single UNSUBSCRIBE message to the server. The UNSUBSCRIBE
@@ -245,44 +246,44 @@ func (this *Client) Subscribe(msg *message.SubscribeMessage, onComplete OnComple
 // completion, which is when the client receives a UNSUBACK message from the server,
 // the supplied onComplete function is called. The client will no longer handle
 // messages from the server for those unsubscribed topics.
-func (this *Client) Unsubscribe(msg *message.UnsubscribeMessage, onComplete OnCompleteFunc) error {
-	return this.svc.unsubscribe(msg, onComplete)
+func (cln *Client) Unsubscribe(msg *message.UnsubscribeMessage, onComplete OnCompleteFunc) error {
+	return cln.svc.unsubscribe(msg, onComplete)
 }
 
 // Ping sends a single PINGREQ message to the server. PINGREQ/PINGRESP messages are
 // mainly used by the client to keep a heartbeat to the server so the connection won't
 // be dropped.
-func (this *Client) Ping(onComplete OnCompleteFunc) error {
-	return this.svc.ping(onComplete)
+func (cln *Client) Ping(onComplete OnCompleteFunc) error {
+	return cln.svc.ping(onComplete)
 }
 
 // Disconnect sends a single DISCONNECT message to the server. The client immediately
 // terminates after the sending of the DISCONNECT message.
-func (this *Client) Disconnect() {
+func (cln *Client) Disconnect() {
 	//msg := message.NewDisconnectMessage()
-	this.svc.stop()
+	cln.svc.stop()
 }
 
-func (this *Client) getSession(svc *service, req *message.ConnectMessage, resp *message.ConnackMessage) error {
+func (cln *Client) getSession(svc *service, req *message.ConnectMessage, resp *message.ConnackMessage) error {
 	//id := string(req.ClientId())
 	svc.sess = &sessions.Session{}
 	return svc.sess.Init(req)
 }
 
-func (this *Client) checkConfiguration() {
-	if this.KeepAlive == 0 {
-		this.KeepAlive = DefaultKeepAlive
+func (cln *Client) checkConfiguration() {
+	if cln.KeepAlive == 0 {
+		cln.KeepAlive = DefaultKeepAlive
 	}
 
-	if this.ConnectTimeout == 0 {
-		this.ConnectTimeout = DefaultConnectTimeout
+	if cln.ConnectTimeout == 0 {
+		cln.ConnectTimeout = DefaultConnectTimeout
 	}
 
-	if this.AckTimeout == 0 {
-		this.AckTimeout = DefaultAckTimeout
+	if cln.AckTimeout == 0 {
+		cln.AckTimeout = DefaultAckTimeout
 	}
 
-	if this.TimeoutRetries == 0 {
-		this.TimeoutRetries = DefaultTimeoutRetries
+	if cln.TimeoutRetries == 0 {
+		cln.TimeoutRetries = DefaultTimeoutRetries
 	}
 }

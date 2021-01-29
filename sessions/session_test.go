@@ -17,8 +17,8 @@ package sessions
 import (
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/mdzio/go-mqtt/message"
+	"github.com/stretchr/testify/require"
 )
 
 func TestSessionInit(t *testing.T) {
@@ -31,7 +31,7 @@ func TestSessionInit(t *testing.T) {
 	require.Equal(t, cmsg.WillQos(), sess.Cmsg.WillQos())
 	require.Equal(t, cmsg.Version(), sess.Cmsg.Version())
 	require.Equal(t, cmsg.CleanSession(), sess.Cmsg.CleanSession())
-	require.Equal(t, cmsg.ClientId(), sess.Cmsg.ClientId())
+	require.Equal(t, cmsg.ClientID(), sess.Cmsg.ClientID())
 	require.Equal(t, cmsg.KeepAlive(), sess.Cmsg.KeepAlive())
 	require.Equal(t, cmsg.WillTopic(), sess.Cmsg.WillTopic())
 	require.Equal(t, cmsg.WillMessage(), sess.Cmsg.WillMessage())
@@ -68,14 +68,14 @@ func TestSessionPublishAckqueue(t *testing.T) {
 	require.Equal(t, 12, sess.Pub1ack.len())
 
 	ack1 := message.NewPubackMessage()
-	ack1.SetPacketId(1)
+	ack1.SetPacketID(1)
 	sess.Pub1ack.Ack(ack1)
 
 	acked := sess.Pub1ack.Acked()
 	require.Equal(t, 0, len(acked))
 
 	ack0 := message.NewPubackMessage()
-	ack0.SetPacketId(0)
+	ack0.SetPacketID(0)
 	sess.Pub1ack.Ack(ack0)
 
 	acked = sess.Pub1ack.Acked()
@@ -87,7 +87,7 @@ func newConnectMessage() *message.ConnectMessage {
 	msg.SetWillQos(1)
 	msg.SetVersion(4)
 	msg.SetCleanSession(true)
-	msg.SetClientId([]byte("surgemq"))
+	msg.SetClientID([]byte("surgemq"))
 	msg.SetKeepAlive(10)
 	msg.SetWillTopic([]byte("will"))
 	msg.SetWillMessage([]byte("send me home"))
@@ -99,7 +99,7 @@ func newConnectMessage() *message.ConnectMessage {
 
 func newPublishMessage(pktid uint16, qos byte) *message.PublishMessage {
 	msg := message.NewPublishMessage()
-	msg.SetPacketId(pktid)
+	msg.SetPacketID(pktid)
 	msg.SetTopic([]byte("abc"))
 	msg.SetPayload([]byte("abc"))
 	msg.SetQoS(qos)

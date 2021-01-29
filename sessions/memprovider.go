@@ -19,36 +19,38 @@ import (
 	"sync"
 )
 
-var _ SessionsProvider = (*memProvider)(nil)
-
 func init() {
 	Register("mem", NewMemProvider())
 }
 
-type memProvider struct {
+// MemProvider is a memory backed provider.
+type MemProvider struct {
 	st map[string]*Session
 	mu sync.RWMutex
 }
 
-func NewMemProvider() *memProvider {
-	return &memProvider{
+// NewMemProvider creates a MemProvider.
+func NewMemProvider() *MemProvider {
+	return &MemProvider{
 		st: make(map[string]*Session),
 	}
 }
 
-func (this *memProvider) New(id string) (*Session, error) {
-	this.mu.Lock()
-	defer this.mu.Unlock()
+// New creates a new session.
+func (mp *MemProvider) New(id string) (*Session, error) {
+	mp.mu.Lock()
+	defer mp.mu.Unlock()
 
-	this.st[id] = &Session{id: id}
-	return this.st[id], nil
+	mp.st[id] = &Session{id: id}
+	return mp.st[id], nil
 }
 
-func (this *memProvider) Get(id string) (*Session, error) {
-	this.mu.RLock()
-	defer this.mu.RUnlock()
+// Get returns a specific session.
+func (mp *MemProvider) Get(id string) (*Session, error) {
+	mp.mu.RLock()
+	defer mp.mu.RUnlock()
 
-	sess, ok := this.st[id]
+	sess, ok := mp.st[id]
 	if !ok {
 		return nil, fmt.Errorf("store/Get: No session found for key %s", id)
 	}
@@ -56,21 +58,25 @@ func (this *memProvider) Get(id string) (*Session, error) {
 	return sess, nil
 }
 
-func (this *memProvider) Del(id string) {
-	this.mu.Lock()
-	defer this.mu.Unlock()
-	delete(this.st, id)
+// Del deletes a spcific session.
+func (mp *MemProvider) Del(id string) {
+	mp.mu.Lock()
+	defer mp.mu.Unlock()
+	delete(mp.st, id)
 }
 
-func (this *memProvider) Save(id string) error {
+// Save persists a session.
+func (mp *MemProvider) Save(id string) error {
 	return nil
 }
 
-func (this *memProvider) Count() int {
-	return len(this.st)
+// Count returns the number of sessions.
+func (mp *MemProvider) Count() int {
+	return len(mp.st)
 }
 
-func (this *memProvider) Close() error {
-	this.st = make(map[string]*Session)
+// Close releases all resources.
+func (mp *MemProvider) Close() error {
+	mp.st = make(map[string]*Session)
 	return nil
 }

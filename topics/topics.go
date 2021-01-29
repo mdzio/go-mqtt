@@ -54,11 +54,11 @@ var (
 	// It probably hasn't been registered yet.
 	ErrAuthProviderNotFound = errors.New("auth: Authentication provider not found")
 
-	providers = make(map[string]TopicsProvider)
+	providers = make(map[string]Provider)
 )
 
-// TopicsProvider
-type TopicsProvider interface {
+// Provider defines the interface for topic providers.
+type Provider interface {
 	Subscribe(topic []byte, qos byte, subscriber interface{}) (byte, error)
 	Unsubscribe(topic []byte, subscriber interface{}) error
 	Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error
@@ -67,7 +67,8 @@ type TopicsProvider interface {
 	Close() error
 }
 
-func Register(name string, provider TopicsProvider) {
+// Register registers a topics provider.
+func Register(name string, provider Provider) {
 	if provider == nil {
 		panic("topics: Register provide is nil")
 	}
@@ -79,14 +80,17 @@ func Register(name string, provider TopicsProvider) {
 	providers[name] = provider
 }
 
+// Unregister unregisters a topics provider.
 func Unregister(name string) {
 	delete(providers, name)
 }
 
+// Manager manages a topic provider.
 type Manager struct {
-	p TopicsProvider
+	p Provider
 }
 
+// NewManager creates a new manager with a specific provider.
 func NewManager(providerName string) (*Manager, error) {
 	p, ok := providers[providerName]
 	if !ok {
@@ -96,26 +100,32 @@ func NewManager(providerName string) (*Manager, error) {
 	return &Manager{p: p}, nil
 }
 
-func (this *Manager) Subscribe(topic []byte, qos byte, subscriber interface{}) (byte, error) {
-	return this.p.Subscribe(topic, qos, subscriber)
+// Subscribe implements Provider.
+func (m *Manager) Subscribe(topic []byte, qos byte, subscriber interface{}) (byte, error) {
+	return m.p.Subscribe(topic, qos, subscriber)
 }
 
-func (this *Manager) Unsubscribe(topic []byte, subscriber interface{}) error {
-	return this.p.Unsubscribe(topic, subscriber)
+// Unsubscribe implements Provider.
+func (m *Manager) Unsubscribe(topic []byte, subscriber interface{}) error {
+	return m.p.Unsubscribe(topic, subscriber)
 }
 
-func (this *Manager) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error {
-	return this.p.Subscribers(topic, qos, subs, qoss)
+// Subscribers implements Provider.
+func (m *Manager) Subscribers(topic []byte, qos byte, subs *[]interface{}, qoss *[]byte) error {
+	return m.p.Subscribers(topic, qos, subs, qoss)
 }
 
-func (this *Manager) Retain(msg *message.PublishMessage) error {
-	return this.p.Retain(msg)
+// Retain implements Provider.
+func (m *Manager) Retain(msg *message.PublishMessage) error {
+	return m.p.Retain(msg)
 }
 
-func (this *Manager) Retained(topic []byte, msgs *[]*message.PublishMessage) error {
-	return this.p.Retained(topic, msgs)
+// Retained implements Provider.
+func (m *Manager) Retained(topic []byte, msgs *[]*message.PublishMessage) error {
+	return m.p.Retained(topic, msgs)
 }
 
-func (this *Manager) Close() error {
-	return this.p.Close()
+// Close implements Provider.
+func (m *Manager) Close() error {
+	return m.p.Close()
 }

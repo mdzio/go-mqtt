@@ -27,19 +27,19 @@ const (
 )
 
 const (
-	// QoS 0: At most once delivery
+	// QosAtMostOnce (QoS 0: At most once delivery)
 	// The message is delivered according to the capabilities of the underlying network.
 	// No response is sent by the receiver and no retry is performed by the sender. The
 	// message arrives at the receiver either once or not at all.
 	QosAtMostOnce byte = iota
 
-	// QoS 1: At least once delivery
+	// QosAtLeastOnce (QoS 1: At least once delivery)
 	// This quality of service ensures that the message arrives at the receiver at least once.
 	// A QoS 1 PUBLISH Packet has a Packet Identifier in its variable header and is acknowledged
 	// by a PUBACK Packet. Section 2.3.1 provides more information about Packet Identifiers.
 	QosAtLeastOnce
 
-	// QoS 2: Exactly once delivery
+	// QosExactlyOnce (QoS 2: Exactly once delivery)
 	// This is the highest quality of service, for use when neither loss nor duplication of
 	// messages are acceptable. There is an increased overhead associated with this quality of
 	// service.
@@ -57,9 +57,9 @@ var SupportedVersions map[byte]string = map[byte]string{
 	0x4: "MQTT",
 }
 
-// MessageType is the type representing the MQTT packet types. In the MQTT spec,
+// Type is the type representing the MQTT packet types. In the MQTT spec,
 // MQTT control packet type is represented as a 4-bit unsigned value.
-type MessageType byte
+type Type byte
 
 // Message is an interface defined for all MQTT message types.
 type Message interface {
@@ -76,11 +76,11 @@ type Message interface {
 
 	// Type returns the MessageType of the Message. The retured value should be one
 	// of the constants defined for MessageType.
-	Type() MessageType
+	Type() Type
 
-	// PacketId returns the packet ID of the Message. The retured value is 0 if
+	// PacketID returns the packet ID of the Message. The retured value is 0 if
 	// there's no packet ID for this message type. Otherwise non-0.
-	PacketId() uint16
+	PacketID() uint16
 
 	// Encode writes the message bytes into the byte array from the argument. It
 	// returns the number of bytes encoded and whether there's any errors along
@@ -99,68 +99,68 @@ type Message interface {
 }
 
 const (
-	// RESERVED is a reserved value and should be considered an invalid message type
-	RESERVED MessageType = iota
+	// RESERVED is a reserved value and should be considered an invalid message type.
+	RESERVED Type = iota
 
-	// CONNECT: Client to Server. Client request to connect to Server.
+	// CONNECT - Client to Server. Client request to connect to Server.
 	CONNECT
 
-	// CONNACK: Server to Client. Connect acknowledgement.
+	// CONNACK - Server to Client. Connect acknowledgement.
 	CONNACK
 
-	// PUBLISH: Client to Server, or Server to Client. Publish message.
+	// PUBLISH - Client to Server, or Server to Client. Publish message.
 	PUBLISH
 
-	// PUBACK: Client to Server, or Server to Client. Publish acknowledgment for
+	// PUBACK - Client to Server, or Server to Client. Publish acknowledgment for
 	// QoS 1 messages.
 	PUBACK
 
-	// PUBACK: Client to Server, or Server to Client. Publish received for QoS 2 messages.
+	// PUBREC - Client to Server, or Server to Client. Publish received for QoS 2 messages.
 	// Assured delivery part 1.
 	PUBREC
 
-	// PUBREL: Client to Server, or Server to Client. Publish release for QoS 2 messages.
-	// Assured delivery part 1.
+	// PUBREL - Client to Server, or Server to Client. Publish release for QoS 2 messages.
+	// Assured delivery part 2.
 	PUBREL
 
-	// PUBCOMP: Client to Server, or Server to Client. Publish complete for QoS 2 messages.
+	// PUBCOMP - Client to Server, or Server to Client. Publish complete for QoS 2 messages.
 	// Assured delivery part 3.
 	PUBCOMP
 
-	// SUBSCRIBE: Client to Server. Client subscribe request.
+	// SUBSCRIBE - Client to Server. Client subscribe request.
 	SUBSCRIBE
 
-	// SUBACK: Server to Client. Subscribe acknowledgement.
+	// SUBACK - Server to Client. Subscribe acknowledgement.
 	SUBACK
 
-	// UNSUBSCRIBE: Client to Server. Unsubscribe request.
+	// UNSUBSCRIBE - Client to Server. Unsubscribe request.
 	UNSUBSCRIBE
 
-	// UNSUBACK: Server to Client. Unsubscribe acknowlegment.
+	// UNSUBACK - Server to Client. Unsubscribe acknowlegment.
 	UNSUBACK
 
-	// PINGREQ: Client to Server. PING request.
+	// PINGREQ - Client to Server. PING request.
 	PINGREQ
 
-	// PINGRESP: Server to Client. PING response.
+	// PINGRESP - Server to Client. PING response.
 	PINGRESP
 
-	// DISCONNECT: Client to Server. Client is disconnecting.
+	// DISCONNECT - Client to Server. Client is disconnecting.
 	DISCONNECT
 
 	// RESERVED2 is a reserved value and should be considered an invalid message type.
 	RESERVED2
 )
 
-func (this MessageType) String() string {
-	return this.Name()
+func (t Type) String() string {
+	return t.Name()
 }
 
 // Name returns the name of the message type. It should correspond to one of the
 // constant values defined for MessageType. It is statically defined and cannot
 // be changed.
-func (this MessageType) Name() string {
-	switch this {
+func (t Type) Name() string {
+	switch t {
 	case RESERVED:
 		return "RESERVED"
 	case CONNECT:
@@ -200,8 +200,8 @@ func (this MessageType) Name() string {
 
 // Desc returns the description of the message type. It is statically defined (copied
 // from MQTT spec) and cannot be changed.
-func (this MessageType) Desc() string {
-	switch this {
+func (t Type) Desc() string {
+	switch t {
 	case RESERVED:
 		return "Reserved"
 	case CONNECT:
@@ -241,8 +241,8 @@ func (this MessageType) Desc() string {
 
 // DefaultFlags returns the default flag values for the message type, as defined by
 // the MQTT spec.
-func (this MessageType) DefaultFlags() byte {
-	switch this {
+func (t Type) DefaultFlags() byte {
+	switch t {
 	case RESERVED:
 		return 0
 	case CONNECT:
@@ -283,8 +283,8 @@ func (this MessageType) DefaultFlags() byte {
 // New creates a new message based on the message type. It is a shortcut to call
 // one of the New*Message functions. If an error is returned then the message type
 // is invalid.
-func (this MessageType) New() (Message, error) {
-	switch this {
+func (t Type) New() (Message, error) {
+	switch t {
 	case CONNECT:
 		return NewConnectMessage(), nil
 	case CONNACK:
@@ -315,12 +315,12 @@ func (this MessageType) New() (Message, error) {
 		return NewDisconnectMessage(), nil
 	}
 
-	return nil, fmt.Errorf("msgtype/NewMessage: Invalid message type %d", this)
+	return nil, fmt.Errorf("msgtype/NewMessage: Invalid message type %d", t)
 }
 
 // Valid returns a boolean indicating whether the message type is valid or not.
-func (this MessageType) Valid() bool {
-	return this > RESERVED && this < RESERVED2
+func (t Type) Valid() bool {
+	return t > RESERVED && t < RESERVED2
 }
 
 // ValidTopic checks the topic, which is a slice of bytes, to see if it's valid. Topic is
@@ -351,7 +351,7 @@ func ValidConnackError(err error) bool {
 // Read length prefixed bytes
 func readLPBytes(buf []byte) ([]byte, int, error) {
 	if len(buf) < 2 {
-		return nil, 0, fmt.Errorf("utils/readLPBytes: Insufficient buffer size. Expecting %d, got %d.", 2, len(buf))
+		return nil, 0, fmt.Errorf("utils/readLPBytes: Insufficient buffer size. Expecting %d, got %d", 2, len(buf))
 	}
 
 	n, total := 0, 0
@@ -360,7 +360,7 @@ func readLPBytes(buf []byte) ([]byte, int, error) {
 	total += 2
 
 	if len(buf) < n {
-		return nil, total, fmt.Errorf("utils/readLPBytes: Insufficient buffer size. Expecting %d, got %d.", n, len(buf))
+		return nil, total, fmt.Errorf("utils/readLPBytes: Insufficient buffer size. Expecting %d, got %d", n, len(buf))
 	}
 
 	total += n
@@ -373,11 +373,11 @@ func writeLPBytes(buf []byte, b []byte) (int, error) {
 	total, n := 0, len(b)
 
 	if n > int(maxLPString) {
-		return 0, fmt.Errorf("utils/writeLPBytes: Length (%d) greater than %d bytes.", n, maxLPString)
+		return 0, fmt.Errorf("utils/writeLPBytes: Length (%d) greater than %d bytes", n, maxLPString)
 	}
 
 	if len(buf) < 2+n {
-		return 0, fmt.Errorf("utils/writeLPBytes: Insufficient buffer size. Expecting %d, got %d.", 2+n, len(buf))
+		return 0, fmt.Errorf("utils/writeLPBytes: Insufficient buffer size. Expecting %d, got %d", 2+n, len(buf))
 	}
 
 	binary.BigEndian.PutUint16(buf, uint16(n))

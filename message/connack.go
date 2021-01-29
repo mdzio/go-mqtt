@@ -16,7 +16,7 @@ package message
 
 import "fmt"
 
-// The CONNACK Packet is the packet sent by the Server in response to a CONNECT Packet
+// ConnackMessage is the packet sent by the Server in response to a CONNECT Packet
 // received from a Client. The first packet sent from the Server to the Client MUST
 // be a CONNACK Packet [MQTT-3.2.0-1].
 //
@@ -30,9 +30,7 @@ type ConnackMessage struct {
 	returnCode     ConnackCode
 }
 
-var _ Message = (*ConnackMessage)(nil)
-
-// NewConnackMessage creates a new CONNACK message
+// NewConnackMessage creates a new CONNACK message.
 func NewConnackMessage() *ConnackMessage {
 	msg := &ConnackMessage{}
 	msg.SetType(CONNACK)
@@ -40,56 +38,59 @@ func NewConnackMessage() *ConnackMessage {
 	return msg
 }
 
-// String returns a string representation of the CONNACK message
-func (this ConnackMessage) String() string {
-	return fmt.Sprintf("%s, Session Present=%t, Return code=%q\n", this.header, this.sessionPresent, this.returnCode)
+// String returns a string representation of the CONNACK message.
+func (m ConnackMessage) String() string {
+	return fmt.Sprintf("%s, Session Present=%t, Return code=%q\n", m.header, m.sessionPresent, m.returnCode)
 }
 
-// SessionPresent returns the session present flag value
-func (this *ConnackMessage) SessionPresent() bool {
-	return this.sessionPresent
+// SessionPresent returns the session present flag value.
+func (m *ConnackMessage) SessionPresent() bool {
+	return m.sessionPresent
 }
 
-// SetSessionPresent sets the value of the session present flag
-func (this *ConnackMessage) SetSessionPresent(v bool) {
+// SetSessionPresent sets the value of the session present flag.
+func (m *ConnackMessage) SetSessionPresent(v bool) {
 	if v {
-		this.sessionPresent = true
+		m.sessionPresent = true
 	} else {
-		this.sessionPresent = false
+		m.sessionPresent = false
 	}
 
-	this.dirty = true
+	m.dirty = true
 }
 
 // ReturnCode returns the return code received for the CONNECT message. The return
-// type is an error
-func (this *ConnackMessage) ReturnCode() ConnackCode {
-	return this.returnCode
+// type is an error.
+func (m *ConnackMessage) ReturnCode() ConnackCode {
+	return m.returnCode
 }
 
-func (this *ConnackMessage) SetReturnCode(ret ConnackCode) {
-	this.returnCode = ret
-	this.dirty = true
+// SetReturnCode sets the return code.
+func (m *ConnackMessage) SetReturnCode(ret ConnackCode) {
+	m.returnCode = ret
+	m.dirty = true
 }
 
-func (this *ConnackMessage) Len() int {
-	if !this.dirty {
-		return len(this.dbuf)
+// Len returns the length of the message.
+func (m *ConnackMessage) Len() int {
+	if !m.dirty {
+		return len(m.dbuf)
 	}
 
-	ml := this.msglen()
+	ml := m.msglen()
 
-	if err := this.SetRemainingLength(int32(ml)); err != nil {
+	if err := m.SetRemainingLength(int32(ml)); err != nil {
 		return 0
 	}
 
-	return this.header.msglen() + ml
+	return m.header.msglen() + ml
 }
 
-func (this *ConnackMessage) Decode(src []byte) (int, error) {
+// Decode decodes the message.
+func (m *ConnackMessage) Decode(src []byte) (int, error) {
 	total := 0
 
-	n, err := this.header.decode(src)
+	n, err := m.header.decode(src)
 	total += n
 	if err != nil {
 		return total, err
@@ -101,7 +102,7 @@ func (this *ConnackMessage) Decode(src []byte) (int, error) {
 		return 0, fmt.Errorf("connack/Decode: Bits 7-1 in Connack Acknowledge Flags byte (1) are not 0")
 	}
 
-	this.sessionPresent = b&0x1 == 1
+	m.sessionPresent = b&0x1 == 1
 	total++
 
 	b = src[total]
@@ -111,58 +112,59 @@ func (this *ConnackMessage) Decode(src []byte) (int, error) {
 		return 0, fmt.Errorf("connack/Decode: Invalid CONNACK return code (%d)", b)
 	}
 
-	this.returnCode = ConnackCode(b)
+	m.returnCode = ConnackCode(b)
 	total++
 
-	this.dirty = false
+	m.dirty = false
 
 	return total, nil
 }
 
-func (this *ConnackMessage) Encode(dst []byte) (int, error) {
-	if !this.dirty {
-		if len(dst) < len(this.dbuf) {
-			return 0, fmt.Errorf("connack/Encode: Insufficient buffer size. Expecting %d, got %d.", len(this.dbuf), len(dst))
+// Encode encodes the message.
+func (m *ConnackMessage) Encode(dst []byte) (int, error) {
+	if !m.dirty {
+		if len(dst) < len(m.dbuf) {
+			return 0, fmt.Errorf("connack/Encode: Insufficient buffer size. Expecting %d, got %d", len(m.dbuf), len(dst))
 		}
 
-		return copy(dst, this.dbuf), nil
+		return copy(dst, m.dbuf), nil
 	}
 
 	// CONNACK remaining length fixed at 2 bytes
-	hl := this.header.msglen()
-	ml := this.msglen()
+	hl := m.header.msglen()
+	ml := m.msglen()
 
 	if len(dst) < hl+ml {
-		return 0, fmt.Errorf("connack/Encode: Insufficient buffer size. Expecting %d, got %d.", hl+ml, len(dst))
+		return 0, fmt.Errorf("connack/Encode: Insufficient buffer size. Expecting %d, got %d", hl+ml, len(dst))
 	}
 
-	if err := this.SetRemainingLength(int32(ml)); err != nil {
+	if err := m.SetRemainingLength(int32(ml)); err != nil {
 		return 0, err
 	}
 
 	total := 0
 
-	n, err := this.header.encode(dst[total:])
+	n, err := m.header.encode(dst[total:])
 	total += n
 	if err != nil {
 		return 0, err
 	}
 
-	if this.sessionPresent {
+	if m.sessionPresent {
 		dst[total] = 1
 	}
 	total++
 
-	if this.returnCode > 5 {
-		return total, fmt.Errorf("connack/Encode: Invalid CONNACK return code (%d)", this.returnCode)
+	if m.returnCode > 5 {
+		return total, fmt.Errorf("connack/Encode: Invalid CONNACK return code (%d)", m.returnCode)
 	}
 
-	dst[total] = this.returnCode.Value()
+	dst[total] = m.returnCode.Value()
 	total++
 
 	return total, nil
 }
 
-func (this *ConnackMessage) msglen() int {
+func (m *ConnackMessage) msglen() int {
 	return 2
 }
