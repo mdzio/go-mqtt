@@ -24,7 +24,6 @@ import (
 )
 
 var (
-	errQueueFull   error = errors.New("queue full")
 	errQueueEmpty  error = errors.New("queue empty")
 	errWaitMessage error = errors.New("Invalid message to wait for ack")
 	errAckMessage  error = errors.New("Invalid message for acking")
@@ -127,8 +126,10 @@ func (aq *Ackqueue) Wait(msg message.Message, onComplete interface{}) error {
 		aq.ping = AckMsg{
 			Mtype:      message.PINGREQ,
 			State:      message.RESERVED,
+			Msgbuf:     make([]byte, 2),
 			OnComplete: onComplete,
 		}
+		msg.Encode(aq.ping.Msgbuf)
 
 	default:
 		return errWaitMessage
@@ -158,14 +159,13 @@ func (aq *Ackqueue) Ack(msg message.Message) error {
 			if err != nil {
 				return err
 			}
-			//glog.Debugf("Acked: %v", msg)
-			//} else {
-			//glog.Debugf("Cannot ack %s message with packet ID %d", msg.Type(), msg.PacketID())
 		}
 
 	case message.PINGRESP:
 		if aq.ping.Mtype == message.PINGREQ {
 			aq.ping.State = message.PINGRESP
+			aq.ping.Ackbuf = make([]byte, 2)
+			msg.Encode(aq.ping.Ackbuf)
 		}
 
 	default:
