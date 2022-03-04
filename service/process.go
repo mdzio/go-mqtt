@@ -384,8 +384,6 @@ func (p *service) onPublish(msg *message.PublishMessage) error {
 		return err
 	}
 
-	msg.SetRetain(false)
-
 	for i, s := range p.subs {
 		if s != nil {
 			fn := s.(*OnPublishFunc)

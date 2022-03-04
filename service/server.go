@@ -245,8 +245,6 @@ func (svr *Server) Publish(msg *message.PublishMessage) error {
 		return err
 	}
 
-	msg.SetRetain(false)
-
 	for i, s := range subs {
 		if s != nil {
 			fn := s.(*OnPublishFunc)
