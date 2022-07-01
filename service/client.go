@@ -50,6 +50,10 @@ type Client struct {
 	// If no set then default to 3 retries.
 	TimeoutRetries int
 
+	// Size of the in and out buffers. This affects the maximum payload size. If
+	// not set, the defaultBufferSize (1024*256) is used.
+	BufferSize int64
+
 	svc *service
 }
 
@@ -111,6 +115,7 @@ func (cln *Client) Connect(uri string, msg *message.ConnectMessage) (err error) 
 		connectTimeout: cln.ConnectTimeout,
 		ackTimeout:     cln.AckTimeout,
 		timeoutRetries: cln.TimeoutRetries,
+		bufferSize:     cln.BufferSize,
 	}
 
 	err = cln.getSession(cln.svc, msg, resp)
@@ -193,6 +198,7 @@ func (cln *Client) ConnectTLS(uri string, msg *message.ConnectMessage, cfg *tls.
 		connectTimeout: cln.ConnectTimeout,
 		ackTimeout:     cln.AckTimeout,
 		timeoutRetries: cln.TimeoutRetries,
+		bufferSize:     cln.BufferSize,
 	}
 
 	err = cln.getSession(cln.svc, msg, resp)

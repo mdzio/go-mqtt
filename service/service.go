@@ -101,6 +101,10 @@ type service struct {
 	// then exit.
 	done chan struct{}
 
+	// Size of the in and out buffers. This affects the maximum payload size. If
+	// not set, the defaultBufferSize (1024*256) is used.
+	bufferSize int64
+
 	// Incoming data buffer. Bytes are read from the connection and put in here.
 	in *buffer
 
@@ -131,13 +135,13 @@ func (svc *service) start() error {
 	var err error
 
 	// Create the incoming ring buffer
-	svc.in, err = newBuffer(defaultBufferSize)
+	svc.in, err = newBuffer(svc.bufferSize)
 	if err != nil {
 		return err
 	}
 
 	// Create the outgoing ring buffer
-	svc.out, err = newBuffer(defaultBufferSize)
+	svc.out, err = newBuffer(svc.bufferSize)
 	if err != nil {
 		return err
 	}

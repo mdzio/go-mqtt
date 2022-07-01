@@ -16,7 +16,6 @@ package service
 
 import (
 	"bufio"
-	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -34,13 +33,10 @@ const (
 
 type sequence struct {
 	// The current position of the producer or consumer
-	cursor,
+	cursor int64
 
 	// The previous known position of the consumer (if producer) or producer (if consumer)
-	gate,
-
-	// These are fillers to pad the cache line, which is generally 64 bytes
-	p2, p3, p4, p5, p6, p7 int64
+	gate int64
 }
 
 func newSequence() *sequence {
@@ -81,16 +77,15 @@ func newBuffer(size int64) (*buffer, error) {
 		return nil, bufio.ErrNegativeCount
 	}
 
+	// adjust buffer size
 	if size == 0 {
 		size = defaultBufferSize
 	}
-
 	if !powerOfTwo64(size) {
-		return nil, fmt.Errorf("Size must be power of two, try %d", roundUpPowerOfTwo64(size))
+		size = roundUpPowerOfTwo64(size)
 	}
-
 	if size < 2*defaultReadBlockSize {
-		return nil, fmt.Errorf("Size must at least be %d, try %d", 2*defaultReadBlockSize, 2*defaultReadBlockSize)
+		size = 2 * defaultReadBlockSize
 	}
 
 	return &buffer{
@@ -557,11 +552,7 @@ func (bf *buffer) waitForWriteSpace(n int) (int64, int, error) {
 }
 
 func (bf *buffer) isDone() bool {
-	if atomic.LoadInt64(&bf.done) == 1 {
-		return true
-	}
-
-	return false
+	return atomic.LoadInt64(&bf.done) == 1
 }
 
 func ringCopy(dst, src []byte, start int64) int {

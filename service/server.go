@@ -69,6 +69,10 @@ type Server struct {
 	// If no set then default to 3 retries.
 	TimeoutRetries int
 
+	// Size of the in and out buffers. This affects the maximum payload size. If
+	// not set, the defaultBufferSize (1024*256) is used.
+	BufferSize int64
+
 	// Authenticator is the authenticator used to check username and password sent
 	// in the CONNECT message. If not set then default to "mockSuccess".
 	Authenticator string
@@ -385,6 +389,7 @@ func (svr *Server) handleConnection(c io.Closer) (svc *service, err error) {
 		connectTimeout: svr.ConnectTimeout,
 		ackTimeout:     svr.AckTimeout,
 		timeoutRetries: svr.TimeoutRetries,
+		bufferSize:     svr.BufferSize,
 
 		conn:      conn,
 		sessMgr:   svr.sessMgr,
