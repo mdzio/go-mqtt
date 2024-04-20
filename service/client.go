@@ -271,7 +271,7 @@ func (cln *Client) Disconnect() {
 	cln.svc.stop()
 }
 
-func (cln *Client) getSession(svc *service, req *message.ConnectMessage, resp *message.ConnackMessage) error {
+func (cln *Client) getSession(svc *service, req *message.ConnectMessage, _ *message.ConnackMessage) error {
 	svc.sess = &sessions.Session{}
 	return svc.sess.Init(req)
 }

@@ -357,9 +357,7 @@ func TestServiceSub0Pub1(t *testing.T) {
 			require.FailNow(t, "Timed out waiting for puback messages")
 		}
 
-		select {
-		case <-time.After(time.Millisecond * 300):
-		}
+		time.Sleep(time.Millisecond * 300)
 	})
 }
 
@@ -578,9 +576,7 @@ func TestServiceSub1Pub2(t *testing.T) {
 			require.FailNow(t, "Timed out waiting for puback messages")
 		}
 
-		select {
-		case <-time.After(time.Millisecond * 300):
-		}
+		time.Sleep(time.Millisecond * 300)
 	})
 }
 
