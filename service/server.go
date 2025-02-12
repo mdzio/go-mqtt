@@ -269,12 +269,44 @@ func (svr *Server) Publish(msg *message.PublishMessage) error {
 
 // Subscribe registers a callback for a topic.
 func (svr *Server) Subscribe(topic string, qos byte, onPublish *OnPublishFunc) error {
-	log.Debugf("Subscribing topic %q with QoS %v for callback %p", topic, qos, onPublish)
+	log.Debugf("Internally subscribing topic %q with QoS %v for callback %p", topic, qos, onPublish)
 	if err := svr.checkConfiguration(); err != nil {
 		return err
 	}
-	if _, err := svr.topicsMgr.Subscribe([]byte(topic), qos, onPublish); err != nil {
+
+	// subscribe topic
+	rqos, err := svr.topicsMgr.Subscribe([]byte(topic), qos, onPublish)
+	if err != nil {
 		return err
+	}
+
+	// collect retained messages and possibly downgrade qos
+	var rmsgs []*message.PublishMessage
+	if err := svr.topicsMgr.Retained([]byte(topic), &rmsgs); err != nil {
+		log.Warning("Getting retained messages failed: %v", err)
+	} else {
+		for j := range rmsgs {
+			if rmsgs[j].QoS() > rqos {
+				// do not alter retained message
+				m, err := rmsgs[j].Clone()
+				if err != nil {
+					log.Warningf("Clone of message failed: %v", err)
+				} else {
+					// downgrade qos
+					m.SetQoS(rqos)
+					rmsgs[j] = m
+				}
+			}
+		}
+	}
+
+	// publish retained messages
+	log.Debugf("Internally publishing %d retained messages", len(rmsgs))
+	for _, rm := range rmsgs {
+		if err := (*onPublish)(rm); err != nil {
+			log.Warningf("Error publishing retained message: %v", err)
+			return err
+		}
 	}
 	return nil
 }

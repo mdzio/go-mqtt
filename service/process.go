@@ -320,7 +320,7 @@ func (p *service) processSubscribe(msg *message.SubscribeMessage) error {
 					// do not alter retained message
 					m, err := nrmsgs[j].Clone()
 					if err != nil {
-						log.Warning("Clone of message failed: %v", err)
+						log.Warningf("Clone of message failed: %v", err)
 					} else {
 						// downgrade qos
 						m.SetQoS(rqos)
