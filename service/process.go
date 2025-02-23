@@ -377,9 +377,6 @@ func (p *service) onPublish(msg *message.PublishMessage) error {
 		if err := p.topicsMgr.Retain(msg); err != nil {
 			log.Warningf("(%s) Un-/Retaining of message failed: %v", p.cid(), err)
 		}
-
-		// reset retain flag (MQTT-3.3.1-9)
-		msg.SetRetain(false)
 	}
 
 	err := p.topicsMgr.Subscribers(msg.Topic(), msg.QoS(), &p.subs, &p.qoss)

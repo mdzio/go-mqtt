@@ -241,9 +241,6 @@ func (svr *Server) Publish(msg *message.PublishMessage) error {
 		if err := svr.topicsMgr.Retain(msg); err != nil {
 			log.Warningf("Un-/Retaining of message failed: %v", err)
 		}
-
-		// reset retain flag (MQTT-3.3.1-9)
-		msg.SetRetain(false)
 	}
 
 	var subs []interface{}

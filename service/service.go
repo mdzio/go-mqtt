@@ -150,6 +150,10 @@ func (svc *service) start() error {
 	if !svc.client {
 		// Creat the onPublishFunc so it can be used for published messages
 		svc.onpub = func(msg *message.PublishMessage) error {
+
+			// reset retain flag (MQTT-3.3.1-9)
+			msg.SetRetain(false)
+
 			if err := svc.publish(msg, nil); err != nil {
 				log.Errorf("(%s) Error publishing message: %v", svc.cid(), err)
 				return err
