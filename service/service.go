@@ -152,13 +152,20 @@ func (svc *service) start() error {
 		svc.onpub = func(msg *message.PublishMessage) error {
 
 			// reset retain flag (MQTT-3.3.1-9)
-			msg.SetRetain(false)
+			sr := msg.Retain()
+			if sr {
+				msg.SetRetain(false)
+			}
 
 			if err := svc.publish(msg, nil); err != nil {
 				log.Errorf("(%s) Error publishing message: %v", svc.cid(), err)
 				return err
 			}
 
+			// restore retain flag
+			if sr {
+				msg.SetRetain(true)
+			}
 			return nil
 		}
 
