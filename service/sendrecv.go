@@ -58,7 +58,7 @@ func (svc *service) receiver() {
 	case net.Conn:
 		keepAlive := time.Second * time.Duration(svc.keepAlive)
 		r := timeoutReader{
-			d:    keepAlive + (keepAlive / 2),
+			d:    keepAlive + (keepAlive / 5),
 			conn: conn,
 		}
 
