@@ -254,7 +254,7 @@ func (svc *service) stop() {
 
 	// Publish will message if WillFlag is set. Server side only.
 	if !svc.client && svc.sess.Cmsg.WillFlag() {
-		log.Warningf("(%s) Connection unexpectedly closed, sending Will message", svc.cid())
+		log.Warningf("(%s) Connection unexpectedly closed, sending will message", svc.cid())
 		svc.onPublish(svc.sess.Will)
 	}
 

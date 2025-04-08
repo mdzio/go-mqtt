@@ -56,7 +56,6 @@ func (svc *service) receiver() {
 
 	switch conn := svc.conn.(type) {
 	case net.Conn:
-		//log.Debugf("server/handleConnection: Setting read deadline to %d", time.Second*time.Duration(this.keepAlive))
 		keepAlive := time.Second * time.Duration(svc.keepAlive)
 		r := timeoutReader{
 			d:    keepAlive + (keepAlive / 2),
@@ -68,14 +67,11 @@ func (svc *service) receiver() {
 
 			if err != nil {
 				if !isEOF(err) {
-					log.Warningf("(%s) Reading from connection failed: %v", svc.cid(), err)
+					log.Debugf("(%s) Reading from connection failed: %v", svc.cid(), err)
 				}
 				return
 			}
 		}
-
-	//case *websocket.Conn:
-	//	log.Errorf("(%s) Websocket: %v", this.cid(), ErrInvalidConnectionType)
 
 	default:
 		log.Errorf("(%s) %v", svc.cid(), ErrInvalidConnectionType)
