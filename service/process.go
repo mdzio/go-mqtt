@@ -375,7 +375,7 @@ func (p *service) onPublish(msg *message.PublishMessage) error {
 	if msg.Retain() {
 		// Retain makes a copy of msg.
 		if err := p.topicsMgr.Retain(msg); err != nil {
-			log.Warningf("(%s) Un-/Retaining of message failed: %v", p.cid(), err)
+			log.Warningf("(%s) Un-/Retaining of message on topic %q failed: %v", p.cid(), msg.Topic(), err)
 		}
 	}
 

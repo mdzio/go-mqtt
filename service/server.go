@@ -239,7 +239,7 @@ func (svr *Server) Publish(msg *message.PublishMessage) error {
 	if msg.Retain() {
 		// Retain makes a copy of msg.
 		if err := svr.topicsMgr.Retain(msg); err != nil {
-			log.Warningf("Un-/Retaining of message failed: %v", err)
+			log.Warningf("Un-/Retaining of message on topic %q failed: %v", msg.Topic(), err)
 		}
 	}
 
