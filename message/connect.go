@@ -36,9 +36,9 @@ var clientIDRegexp *regexp.Regexp
 func init() {
 	// regular expression for the client identifier
 	//
-	// (Accept all printable ASCII characters and a maximum length of 32 bytes
+	// (Accept all printable ASCII characters and a maximum length of 128 bytes
 	// for better compatibility with various clients.)
-	clientIDRegexp = regexp.MustCompile("^[[:print:]]{0,32}$")
+	clientIDRegexp = regexp.MustCompile("^[[:print:]]{0,128}$")
 }
 
 // ConnectMessage represents a MQTT connect message.
