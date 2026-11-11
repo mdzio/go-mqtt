@@ -37,6 +37,7 @@ var (
 	ErrInvalidSubscriber      error = errors.New("service: Invalid subscriber")
 	ErrBufferNotReady         error = errors.New("service: buffer is not ready")
 	ErrBufferInsufficientData error = errors.New("service: buffer has insufficient data")
+	ErrServiceClosed          error = errors.New("service: connection closed")
 )
 
 // Default server configuration.

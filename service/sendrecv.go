@@ -121,8 +121,8 @@ func (svc *service) peekMessageSize() (message.Type, int, error) {
 		cnt int = 2
 	)
 
-	if svc.in == nil {
-		err = ErrBufferNotReady
+	if svc.isDone() {
+		err = ErrServiceClosed
 		return 0, 0, err
 	}
 
@@ -174,8 +174,8 @@ func (svc *service) peekMessage(mtype message.Type, total int) (message.Message,
 		msg  message.Message
 	)
 
-	if svc.in == nil {
-		return nil, 0, ErrBufferNotReady
+	if svc.isDone() {
+		return nil, 0, ErrServiceClosed
 	}
 
 	// Peek until we get total bytes
@@ -211,8 +211,8 @@ func (svc *service) readMessage(mtype message.Type, total int) (message.Message,
 		msg message.Message
 	)
 
-	if svc.in == nil {
-		err = ErrBufferNotReady
+	if svc.isDone() {
+		err = ErrServiceClosed
 		return nil, 0, err
 	}
 
@@ -252,8 +252,8 @@ func (svc *service) writeMessage(msg message.Message) (int, error) {
 		wrap bool
 	)
 
-	if svc.out == nil {
-		return 0, ErrBufferNotReady
+	if svc.isDone() {
+		return 0, ErrServiceClosed
 	}
 
 	// This is to serialize writes to the underlying buffer. Multiple goroutines could

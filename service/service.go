@@ -269,8 +269,9 @@ func (svc *service) stop() {
 	}
 
 	svc.conn = nil
-	svc.in = nil
-	svc.out = nil
+	// Keep svc.in and svc.out referenced (but closed) so that callers can
+	// distinguish a closed service via isDone() instead of a nil-pointer
+	// panic or a misleading ErrBufferNotReady.
 }
 
 func (svc *service) publish(msg *message.PublishMessage, onComplete OnCompleteFunc) error {
